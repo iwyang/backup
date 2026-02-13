@@ -1,0 +1,58 @@
+name: Release Sync
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  sync-job:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - source: "2dust/v2rayN"
+            alias: "v2rayN"
+          - source: "2dust/v2rayNG"
+            alias: "v2rayNG"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_REPO: ${{ matrix.source }}
+          ALIAS: ${{ matrix.alias }}
+        run: |
+          ORIGINAL_TAG=$(gh release view --repo $SOURCE_REPO --json tagName --jq .tagName)
+          NEW_TAG="${ALIAS}-${ORIGINAL_TAG}"
+          
+          echo "Checking $SOURCE_REPO latest: $ORIGINAL_TAG"
+
+          if gh release view $NEW_TAG > /dev/null 2>&1; then
+            echo "Version $NEW_TAG already exists, skipping."
+            exit 0
+          fi
+
+          OLD_TAGS=$(gh release list --limit 100 --json tagName --jq ".[].tagName" | grep "^${ALIAS}-" || true)
+          for tag in $OLD_TAGS; do
+            echo "Deleting old backup: $tag"
+            gh release delete $tag --yes --cleanup-tag
+          done
+
+          mkdir -p ./temp_assets
+          gh release download $ORIGINAL_TAG --repo $SOURCE_REPO --pattern "*" --dir ./temp_assets
+
+          TITLE=$(gh release view $ORIGINAL_TAG --repo $SOURCE_REPO --json name --jq .name)
+          [ -z "$TITLE" ] && TITLE=$ORIGINAL_TAG
+          
+          gh release create $NEW_TAG ./temp_assets/* \
+            --title "[$ALIAS] $TITLE" \
+            --notes "Sync Date: $(date '+%Y-%m-%d %H:%M:%S') | Source: https://github.com/$SOURCE_REPO"
+          
+          echo "Project $ALIAS sync complete!"
