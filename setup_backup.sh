@@ -1,23 +1,28 @@
 #!/bin/bash
 
-# --- 核心黑科技：无论发生什么（报错、成功、意外中断），退出前强制暂停 ---
-trap 'echo -e "\n🛑 脚本运行结束。请按回车键关闭窗口..."; read' EXIT
+# --- 定义错误处理函数 ---
+die() {
+    echo ""
+    echo "❌ 错误: $1"
+    echo "---------------------------------------"
+    read -p "🔴 脚本运行失败。请按回车键关闭窗口..."
+    exit 1
+}
 
 echo "🚀 初始化程序启动..."
 
-# 1. 检查 Git 基础环境
+# 1. 检查 Git
 if ! git --version > /dev/null 2>&1; then
-    echo "❌ 严重错误: 未检测到 Git，请先安装 Git for Windows。"
-    exit 1
+    die "未检测到 Git，请先安装 Git for Windows。"
 fi
 
 # 2. 获取用户输入
-DEFAULT_MSG="更新：$(date '+%Y-%m-%d %H:%M:%S')"
+DEFAULT_MSG="更新配置：$(date '+%Y-%m-%d %H:%M:%S')"
 echo "---------------------------------------"
 echo "📅 当前时间: $(date '+%Y-%m-%d %H:%M:%S')"
-read -p "请输入备份信息 (直接回车默认: $DEFAULT_MSG): " USER_INPUT
+read -p "请输入提交信息 (直接回车默认: $DEFAULT_MSG): " USER_INPUT
 COMMIT_MSG=${USER_INPUT:-$DEFAULT_MSG}
-echo "确认备份信息: $COMMIT_MSG"
+echo "确认信息: $COMMIT_MSG"
 echo "---------------------------------------"
 
 # 3. 生成 Workflow 文件
@@ -30,6 +35,11 @@ permissions:
   contents: write
 
 on:
+  # --- 新增：代码推送时自动触发 ---
+  push:
+    branches: 
+      - main
+  # ---------------------------
   workflow_dispatch:
   schedule:
     - cron: '0 3 * * *'
@@ -93,31 +103,31 @@ INNER_EOF
 
 # 4. Git 提交与推送
 echo "📦 执行 Git 仓库操作..."
-# 忽略 git init 的错误（如果已经存在）
-git init > /dev/null 2>&1
 
-# 移除旧的 remote，确保指向最新
+git init > /dev/null 2>&1
 git remote remove origin > /dev/null 2>&1
-git remote add origin https://github.com/iwyang/backup
+git remote add origin https://github.com/iwyang/backup || die "无法添加远程仓库"
 
 git branch -M main
 git add .
 
-# 检查是否有变更需要提交
 if ! git diff-index --quiet HEAD --; then
     echo "📝 提交更改: $COMMIT_MSG"
-    git commit -m "$COMMIT_MSG"
+    git commit -m "$COMMIT_MSG" || die "Git 提交失败"
 else
     echo "ℹ️ 文件无变化，跳过提交步骤。"
 fi
 
-echo "☁️ 正在推送到 GitHub (可能需要几秒钟)..."
-# 使用 force 推送，避免历史冲突导致脚本卡死
-if git push -u origin main --force; then
-    echo "✅ 推送成功！"
-else
-    echo "❌ 推送失败！可能原因：网络问题 或 权限不足。"
-fi
+echo "☁️ 正在推送到 GitHub..."
 
-# 这里的 exit 会触发第一行的 trap，所以一定会暂停
-exit 0
+if git push -u origin main --force; then
+    echo ""
+    echo "======================================="
+    echo "✅ 推送成功！Actions 将立即开始运行。"
+    echo "✨ 窗口将在 2 秒后自动关闭..."
+    echo "======================================="
+    sleep 2
+    exit 0
+else
+    die "推送失败！请检查网络连接或 GitHub 权限。"
+fi

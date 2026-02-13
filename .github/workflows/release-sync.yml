@@ -3,6 +3,11 @@ permissions:
   contents: write
 
 on:
+  # --- 新增：代码推送时自动触发 ---
+  push:
+    branches: 
+      - main
+  # ---------------------------
   workflow_dispatch:
   schedule:
     - cron: '0 3 * * *'
