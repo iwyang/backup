@@ -18,6 +18,12 @@ jobs:
             alias: "v2rayN"
           - source: "2dust/v2rayNG"
             alias: "v2rayNG"
+          - source: "orion-lib/OrionTV"
+            alias: "OrionTV"
+          - source: "MoonTechLab/Selene"
+            alias: "Selene"
+          - source: "zbezj/HEU_KMS_Activator"
+            alias: "HEU_KMS"
 
     steps:
       - name: Checkout
