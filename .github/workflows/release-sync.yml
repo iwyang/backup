@@ -29,6 +29,8 @@ jobs:
             alias: "Selene"
           - source: "zbezj/HEU_KMS_Activator"
             alias: "HEU_KMS"
+          - source: "eritpchy/FingerprintPay"
+            alias: "FingerprintPay"           
 
     steps:
       - name: Checkout
