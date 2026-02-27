@@ -38,7 +38,9 @@ jobs:
           - source: "Dr-TSNG/ZygiskNext"
             alias: "ZygiskNext" 
           - source: "JingMatrix/LSPosed"
-            alias: "LSPosed"             
+            alias: "LSPosed"  
+          - source: "Xposed-Modules-Repo/com.y7.fingerpay"
+            alias: "com.y7.fingerpay"               
 
     steps:
       - name: Checkout
