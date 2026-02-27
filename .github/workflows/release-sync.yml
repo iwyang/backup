@@ -34,7 +34,11 @@ jobs:
           - source: "connectbot/connectbot"
             alias: "connectbot"    
           - source: "koreader/koreader"
-            alias: "koreader"              
+            alias: "koreader" 
+          - source: "Dr-TSNG/ZygiskNext"
+            alias: "ZygiskNext" 
+          - source: "JingMatrix/LSPosed"
+            alias: "LSPosed"             
 
     steps:
       - name: Checkout
