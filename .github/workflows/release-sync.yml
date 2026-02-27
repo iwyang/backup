@@ -32,7 +32,9 @@ jobs:
           - source: "eritpchy/FingerprintPay"
             alias: "FingerprintPay"   
           - source: "connectbot/connectbot"
-            alias: "connectbot"           
+            alias: "connectbot"    
+          - source: "koreader/koreader"
+            alias: "koreader"              
 
     steps:
       - name: Checkout
