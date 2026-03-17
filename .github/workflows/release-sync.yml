@@ -40,7 +40,9 @@ jobs:
           - source: "JingMatrix/LSPosed"
             alias: "LSPosed"  
           - source: "Xposed-Modules-Repo/com.y7.fingerpay"
-            alias: "com.y7.fingerpay"               
+            alias: "com.y7.fingerpay" 
+          - source: "twoone-3/AdGuardHomeForRoot"
+            alias: "AdGuardHomeForRoot"               
 
     steps:
       - name: Checkout
