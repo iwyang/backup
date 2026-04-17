@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       force_resync:
-        description: '是否强制重新同步所有项目（用于刷新排序）'
+        description: '是否强制重新同步所有项目'
         required: false
         default: 'false'
   schedule:
@@ -20,32 +20,37 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # --- 关键修改：强制任务一个接一个运行，不准并行 ---
+      max-parallel: 1 
+      # --------------------------------------------
       matrix:
         include:
-          - source: "2dust/v2rayN"
-            alias: "v2rayN"
-          - source: "2dust/v2rayNG"
-            alias: "v2rayNG"
-          - source: "orion-lib/OrionTV"
-            alias: "OrionTV"
-          - source: "MoonTechLab/Selene"
-            alias: "Selene"
-          - source: "zbezj/HEU_KMS_Activator"
-            alias: "HEU_KMS"
-          - source: "eritpchy/FingerprintPay"
-            alias: "FingerprintPay"   
-          - source: "connectbot/connectbot"
-            alias: "connectbot"    
-          - source: "koreader/koreader"
-            alias: "koreader" 
-          - source: "Dr-TSNG/ZygiskNext"
-            alias: "ZygiskNext" 
-          - source: "JingMatrix/LSPosed"
-            alias: "LSPosed"  
+          # 注意：排在列表【最后】的项目，同步完后会出现在 Release 列表的【最上方】
+          - source: "twoone-3/AdGuardHomeForRoot"
+            alias: "AdGuardHomeForRoot"
           - source: "Xposed-Modules-Repo/com.y7.fingerpay"
             alias: "com.y7.fingerpay" 
-          - source: "twoone-3/AdGuardHomeForRoot"
-            alias: "AdGuardHomeForRoot"               
+          - source: "JingMatrix/LSPosed"
+            alias: "LSPosed"  
+          - source: "Dr-TSNG/ZygiskNext"
+            alias: "ZygiskNext" 
+          - source: "koreader/koreader"
+            alias: "koreader" 
+          - source: "connectbot/connectbot"
+            alias: "connectbot"    
+          - source: "eritpchy/FingerprintPay"
+            alias: "FingerprintPay"   
+          - source: "zbezj/HEU_KMS_Activator"
+            alias: "HEU_KMS"
+          - source: "MoonTechLab/Selene"
+            alias: "Selene"
+          - source: "orion-lib/OrionTV"
+            alias: "OrionTV"
+          # 假设你希望 v2rayN 和 v2rayNG 在最上面，就把它们放最后面
+          - source: "2dust/v2rayNG"
+            alias: "v2rayNG"
+          - source: "2dust/v2rayN"
+            alias: "v2rayN"
 
     steps:
       - name: Checkout
@@ -60,13 +65,9 @@ jobs:
           ALIAS: ${{ matrix.alias }}
           FORCE_SYNC: ${{ github.event.inputs.force_resync }}
         run: |
-          # 1. 获取上游最新 Tag
           ORIGINAL_TAG=$(gh release view --repo $SOURCE_REPO --json tagName --jq .tagName)
           NEW_TAG="${ALIAS}-${ORIGINAL_TAG}"
           
-          echo "Checking $SOURCE_REPO: $ORIGINAL_TAG"
-
-          # 2. 判断是否跳过（除非开启了强制同步）
           if [ "$FORCE_SYNC" != "true" ]; then
             if gh release view $NEW_TAG > /dev/null 2>&1; then
               echo "Version $NEW_TAG exists, skipping."
@@ -74,8 +75,6 @@ jobs:
             fi
           fi
 
-          # 3. 关键：为每个项目产生一个独立的、带最新时间戳的 Commit
-          # 这确保了 GitHub 排序时，最后跑完的项目永远在最上面
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
@@ -83,31 +82,25 @@ jobs:
           echo "Update: $(date '+%Y-%m-%d %H:%M:%S') - $SOURCE_REPO" > sync_logs/${ALIAS}.log
           git add sync_logs/${ALIAS}.log
           
-          # 解决并发推送冲突的重试逻辑
-          for i in {1..5}; do
-            git commit -m "Sync timestamp for $ALIAS" && \
-            git pull --rebase origin main && \
-            git push origin main && break || sleep 5
-          done
+          # 既然已经串行执行了，就不需要复杂的重试，直接 push
+          git commit -m "Sync $ALIAS"
+          git pull --rebase origin main
+          git push origin main
+          
+          # 为了确保 GitHub 能够识别出时间差，每个任务完成后稍微歇 5 秒
+          sleep 5
 
-          # 4. 清理旧版本（包括同名的 Release，确保刷新）
-          echo "Cleaning up old releases for $ALIAS..."
           OLD_TAGS=$(gh release list --limit 100 --json tagName --jq ".[].tagName" | grep "^${ALIAS}-" || true)
           for tag in $OLD_TAGS; do
             gh release delete $tag --yes --cleanup-tag
           done
 
-          # 5. 同步资源
           mkdir -p ./temp_assets
           gh release download $ORIGINAL_TAG --repo $SOURCE_REPO --pattern "*" --dir ./temp_assets
-
           TITLE=$(gh release view $ORIGINAL_TAG --repo $SOURCE_REPO --json name --jq .name)
           [ -z "$TITLE" ] && TITLE=$ORIGINAL_TAG
           
-          # 6. 发布新 Release（会自动绑定到刚才创建的最新的 Commit 上）
           gh release create $NEW_TAG ./temp_assets/* \
             --title "[$ALIAS] $TITLE" \
             --notes "Sync Date: $(date '+%Y-%m-%d %H:%M:%S') | Source: https://github.com/$SOURCE_REPO" \
             --latest
-          
-          echo "Project $ALIAS sync complete!"
