@@ -16,91 +16,97 @@ on:
     - cron: '0 3 * * *'
 
 jobs:
-  sync-job:
+  dynamic-sync:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      # --- 关键修改：强制任务一个接一个运行，不准并行 ---
-      max-parallel: 1 
-      # --------------------------------------------
-      matrix:
-        include:
-          # 注意：排在列表【最后】的项目，同步完后会出现在 Release 列表的【最上方】
-          - source: "twoone-3/AdGuardHomeForRoot"
-            alias: "AdGuardHomeForRoot"
-          - source: "Xposed-Modules-Repo/com.y7.fingerpay"
-            alias: "com.y7.fingerpay" 
-          - source: "JingMatrix/LSPosed"
-            alias: "LSPosed"  
-          - source: "Dr-TSNG/ZygiskNext"
-            alias: "ZygiskNext" 
-          - source: "koreader/koreader"
-            alias: "koreader" 
-          - source: "connectbot/connectbot"
-            alias: "connectbot"    
-          - source: "eritpchy/FingerprintPay"
-            alias: "FingerprintPay"   
-          - source: "zbezj/HEU_KMS_Activator"
-            alias: "HEU_KMS"
-          - source: "MoonTechLab/Selene"
-            alias: "Selene"
-          - source: "orion-lib/OrionTV"
-            alias: "OrionTV"
-          # 假设你希望 v2rayN 和 v2rayNG 在最上面，就把它们放最后面
-          - source: "2dust/v2rayNG"
-            alias: "v2rayNG"
-          - source: "2dust/v2rayN"
-            alias: "v2rayN"
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Sync Release
+      - name: Dynamic Sort and Sync
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SOURCE_REPO: ${{ matrix.source }}
-          ALIAS: ${{ matrix.alias }}
           FORCE_SYNC: ${{ github.event.inputs.force_resync }}
         run: |
-          ORIGINAL_TAG=$(gh release view --repo $SOURCE_REPO --json tagName --jq .tagName)
-          NEW_TAG="${ALIAS}-${ORIGINAL_TAG}"
-          
-          if [ "$FORCE_SYNC" != "true" ]; then
-            if gh release view $NEW_TAG > /dev/null 2>&1; then
-              echo "Version $NEW_TAG exists, skipping."
-              exit 0
-            fi
-          fi
+          # 1. 定义项目列表 (格式为 "原仓库|别名")
+          repos=(
+            "2dust/v2rayN|v2rayN"
+            "2dust/v2rayNG|v2rayNG"
+            "orion-lib/OrionTV|OrionTV"
+            "MoonTechLab/Selene|Selene"
+            "zbezj/HEU_KMS_Activator|HEU_KMS"
+            "eritpchy/FingerprintPay|FingerprintPay"
+            "connectbot/connectbot|connectbot"
+            "koreader/koreader|koreader"
+            "Dr-TSNG/ZygiskNext|ZygiskNext"
+            "JingMatrix/LSPosed|LSPosed"
+            "Xposed-Modules-Repo/com.y7.fingerpay|com.y7.fingerpay"
+            "twoone-3/AdGuardHomeForRoot|AdGuardHomeForRoot"
+          )
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          mkdir -p sync_logs
-          echo "Update: $(date '+%Y-%m-%d %H:%M:%S') - $SOURCE_REPO" > sync_logs/${ALIAS}.log
-          git add sync_logs/${ALIAS}.log
-          
-          # 既然已经串行执行了，就不需要复杂的重试，直接 push
-          git commit -m "Sync $ALIAS"
-          git pull --rebase origin main
-          git push origin main
-          
-          # 为了确保 GitHub 能够识别出时间差，每个任务完成后稍微歇 5 秒
-          sleep 5
-
-          OLD_TAGS=$(gh release list --limit 100 --json tagName --jq ".[].tagName" | grep "^${ALIAS}-" || true)
-          for tag in $OLD_TAGS; do
-            gh release delete $tag --yes --cleanup-tag
+          # 2. 获取每个项目的原作者更新时间，并存入临时文件
+          echo "Fetching upstream dates..."
+          rm -f repo_list.txt
+          for item in "${repos[@]}"; do
+            src=$(echo $item | cut -d'|' -f1)
+            alias=$(echo $item | cut -d'|' -f2)
+            # 获取原仓库最新 Release 的发布时间
+            pub_date=$(gh release view --repo $src --json publishedAt --jq .publishedAt 2>/dev/null || echo "1970-01-01T00:00:00Z")
+            echo "$pub_date|$src|$alias" >> repo_list.txt
           done
 
-          mkdir -p ./temp_assets
-          gh release download $ORIGINAL_TAG --repo $SOURCE_REPO --pattern "*" --dir ./temp_assets
-          TITLE=$(gh release view $ORIGINAL_TAG --repo $SOURCE_REPO --json name --jq .name)
-          [ -z "$TITLE" ] && TITLE=$ORIGINAL_TAG
+          # 3. 核心：按原作者发布时间进行升序排序 (老的在前，新的在后)
+          # 这样，最新的项目会最后执行同步，从而排在 Release 列表的最顶端
+          sort -o repo_list_sorted.txt repo_list.txt
           
-          gh release create $NEW_TAG ./temp_assets/* \
-            --title "[$ALIAS] $TITLE" \
-            --notes "Sync Date: $(date '+%Y-%m-%d %H:%M:%S') | Source: https://github.com/$SOURCE_REPO" \
-            --latest
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 4. 循环处理排序后的项目
+          while IFS='|' read -r date src alias; do
+            echo "----------------------------------------------------"
+            echo "Processing $alias (Upstream Update: $date)"
+            
+            ORIGINAL_TAG=$(gh release view --repo $src --json tagName --jq .tagName)
+            NEW_TAG="${alias}-${ORIGINAL_TAG}"
+
+            # 检查是否需要同步
+            if [ "$FORCE_SYNC" != "true" ]; then
+              if gh release view $NEW_TAG > /dev/null 2>&1; then
+                echo "Version $NEW_TAG exists, skipping."
+                continue
+              fi
+            fi
+
+            # 产生 Commit 刷新时间戳
+            mkdir -p sync_logs
+            echo "Sync: $(date '+%Y-%m-%d %H:%M:%S') | Upstream: $date" > sync_logs/${alias}.log
+            git add sync_logs/${alias}.log
+            git commit -m "Sync $alias at $(date)" || true
+            git pull --rebase origin main
+            git push origin main
+            
+            # 清理旧版本
+            OLD_TAGS=$(gh release list --limit 100 --json tagName --jq ".[].tagName" | grep "^${alias}-" || true)
+            for tag in $OLD_TAGS; do
+              gh release delete $tag --yes --cleanup-tag
+            done
+
+            # 同步 Assets
+            mkdir -p ./temp_assets
+            rm -rf ./temp_assets/*
+            gh release download $ORIGINAL_TAG --repo $src --pattern "*" --dir ./temp_assets
+            
+            TITLE=$(gh release view $ORIGINAL_TAG --repo $src --json name --jq .name)
+            [ -z "$TITLE" ] && TITLE=$ORIGINAL_TAG
+
+            # 发布并标记为 Latest
+            gh release create $NEW_TAG ./temp_assets/* \
+              --title "[$alias] $TITLE" \
+              --notes "Sync Date: $(date '+%Y-%m-%d %H:%M:%S') | Upstream Update: $date | Source: https://github.com/$src" \
+              --latest
+            
+            echo "$alias sync complete!"
+            sleep 2 # 稍微缓冲，确保 GitHub 时间戳有细微差别
+          done < repo_list_sorted.txt
