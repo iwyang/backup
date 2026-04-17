@@ -7,6 +7,11 @@ on:
     branches: 
       - main
   workflow_dispatch:
+    inputs:
+      force_resync:
+        description: '是否强制重新同步所有项目（用于刷新排序）'
+        required: false
+        default: 'false'
   schedule:
     - cron: '0 3 * * *'
 
@@ -46,64 +51,60 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # 获取完整历史以支持 rebase 推送
+          fetch-depth: 0
 
       - name: Sync Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SOURCE_REPO: ${{ matrix.source }}
           ALIAS: ${{ matrix.alias }}
+          FORCE_SYNC: ${{ github.event.inputs.force_resync }}
         run: |
-          # 1. 检查上游最新版本
+          # 1. 获取上游最新 Tag
           ORIGINAL_TAG=$(gh release view --repo $SOURCE_REPO --json tagName --jq .tagName)
           NEW_TAG="${ALIAS}-${ORIGINAL_TAG}"
           
-          echo "Checking $SOURCE_REPO latest: $ORIGINAL_TAG"
+          echo "Checking $SOURCE_REPO: $ORIGINAL_TAG"
 
-          # 2. 如果当前版本已同步，则跳过
-          if gh release view $NEW_TAG > /dev/null 2>&1; then
-            echo "Version $NEW_TAG already exists, skipping."
-            exit 0
+          # 2. 判断是否跳过（除非开启了强制同步）
+          if [ "$FORCE_SYNC" != "true" ]; then
+            if gh release view $NEW_TAG > /dev/null 2>&1; then
+              echo "Version $NEW_TAG exists, skipping."
+              exit 0
+            fi
           fi
 
-          # 3. 产生一个带时间戳的提交，强制 GitHub 更新 Release 的排序时间
+          # 3. 关键：为每个项目产生一个独立的、带最新时间戳的 Commit
+          # 这确保了 GitHub 排序时，最后跑完的项目永远在最上面
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           mkdir -p sync_logs
-          echo "Last Sync: $(date '+%Y-%m-%d %H:%M:%S') for $ALIAS" > sync_logs/${ALIAS}.log
+          echo "Update: $(date '+%Y-%m-%d %H:%M:%S') - $SOURCE_REPO" > sync_logs/${ALIAS}.log
           git add sync_logs/${ALIAS}.log
           
-          # 由于 matrix 是并行的，这里使用循环重试逻辑防止 push 冲突
-          MAX_RETRIES=5
-          RETRY_COUNT=0
-          until [ $RETRY_COUNT -ge $MAX_RETRIES ]
-          do
-            git commit -m "Update sync timestamp for $ALIAS" && \
+          # 解决并发推送冲突的重试逻辑
+          for i in {1..5}; do
+            git commit -m "Sync timestamp for $ALIAS" && \
             git pull --rebase origin main && \
-            git push origin main && break
-            RETRY_COUNT=$((RETRY_COUNT+1))
-            echo "Push failed, retrying in $((RETRY_COUNT * 2))s... ($RETRY_COUNT/$MAX_RETRIES)"
-            sleep $((RETRY_COUNT * 2))
+            git push origin main && break || sleep 5
           done
 
-          # 4. 删除旧版本的 Release 和 Tag (保持清理，只留最新的)
+          # 4. 清理旧版本（包括同名的 Release，确保刷新）
+          echo "Cleaning up old releases for $ALIAS..."
           OLD_TAGS=$(gh release list --limit 100 --json tagName --jq ".[].tagName" | grep "^${ALIAS}-" || true)
           for tag in $OLD_TAGS; do
-            echo "Deleting old backup: $tag"
             gh release delete $tag --yes --cleanup-tag
           done
 
-          # 5. 下载原始 Assets
+          # 5. 同步资源
           mkdir -p ./temp_assets
           gh release download $ORIGINAL_TAG --repo $SOURCE_REPO --pattern "*" --dir ./temp_assets
 
-          # 6. 获取原始标题
           TITLE=$(gh release view $ORIGINAL_TAG --repo $SOURCE_REPO --json name --jq .name)
           [ -z "$TITLE" ] && TITLE=$ORIGINAL_TAG
           
-          # 7. 创建新 Release 
-          # --latest 会将其标记为最新，关联刚才创建的最新 Commit
+          # 6. 发布新 Release（会自动绑定到刚才创建的最新的 Commit 上）
           gh release create $NEW_TAG ./temp_assets/* \
             --title "[$ALIAS] $TITLE" \
             --notes "Sync Date: $(date '+%Y-%m-%d %H:%M:%S') | Source: https://github.com/$SOURCE_REPO" \
