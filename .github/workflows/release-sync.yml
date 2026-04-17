@@ -3,11 +3,9 @@ permissions:
   contents: write
 
 on:
-  # --- 新增：代码推送时自动触发 ---
   push:
     branches: 
       - main
-  # ---------------------------
   workflow_dispatch:
   schedule:
     - cron: '0 3 * * *'
@@ -47,6 +45,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取完整历史以支持 rebase 推送
 
       - name: Sync Release
         env:
@@ -54,30 +54,59 @@ jobs:
           SOURCE_REPO: ${{ matrix.source }}
           ALIAS: ${{ matrix.alias }}
         run: |
+          # 1. 检查上游最新版本
           ORIGINAL_TAG=$(gh release view --repo $SOURCE_REPO --json tagName --jq .tagName)
           NEW_TAG="${ALIAS}-${ORIGINAL_TAG}"
           
           echo "Checking $SOURCE_REPO latest: $ORIGINAL_TAG"
 
+          # 2. 如果当前版本已同步，则跳过
           if gh release view $NEW_TAG > /dev/null 2>&1; then
             echo "Version $NEW_TAG already exists, skipping."
             exit 0
           fi
 
+          # 3. 产生一个带时间戳的提交，强制 GitHub 更新 Release 的排序时间
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          mkdir -p sync_logs
+          echo "Last Sync: $(date '+%Y-%m-%d %H:%M:%S') for $ALIAS" > sync_logs/${ALIAS}.log
+          git add sync_logs/${ALIAS}.log
+          
+          # 由于 matrix 是并行的，这里使用循环重试逻辑防止 push 冲突
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+          until [ $RETRY_COUNT -ge $MAX_RETRIES ]
+          do
+            git commit -m "Update sync timestamp for $ALIAS" && \
+            git pull --rebase origin main && \
+            git push origin main && break
+            RETRY_COUNT=$((RETRY_COUNT+1))
+            echo "Push failed, retrying in $((RETRY_COUNT * 2))s... ($RETRY_COUNT/$MAX_RETRIES)"
+            sleep $((RETRY_COUNT * 2))
+          done
+
+          # 4. 删除旧版本的 Release 和 Tag (保持清理，只留最新的)
           OLD_TAGS=$(gh release list --limit 100 --json tagName --jq ".[].tagName" | grep "^${ALIAS}-" || true)
           for tag in $OLD_TAGS; do
             echo "Deleting old backup: $tag"
             gh release delete $tag --yes --cleanup-tag
           done
 
+          # 5. 下载原始 Assets
           mkdir -p ./temp_assets
           gh release download $ORIGINAL_TAG --repo $SOURCE_REPO --pattern "*" --dir ./temp_assets
 
+          # 6. 获取原始标题
           TITLE=$(gh release view $ORIGINAL_TAG --repo $SOURCE_REPO --json name --jq .name)
           [ -z "$TITLE" ] && TITLE=$ORIGINAL_TAG
           
+          # 7. 创建新 Release 
+          # --latest 会将其标记为最新，关联刚才创建的最新 Commit
           gh release create $NEW_TAG ./temp_assets/* \
             --title "[$ALIAS] $TITLE" \
-            --notes "Sync Date: $(date '+%Y-%m-%d %H:%M:%S') | Source: https://github.com/$SOURCE_REPO"
+            --notes "Sync Date: $(date '+%Y-%m-%d %H:%M:%S') | Source: https://github.com/$SOURCE_REPO" \
+            --latest
           
           echo "Project $ALIAS sync complete!"
