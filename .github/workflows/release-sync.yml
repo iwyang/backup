@@ -12,8 +12,10 @@ on:
         description: '是否强制重新同步所有项目'
         required: false
         default: 'false'
-  schedule:
-    - cron: '0 3 * * *'
+      sort_direction:
+        description: '同步顺序：asc (更新早的最后同步) 或 desc (更新晚的最后同步)'
+        required: false
+        default: 'asc'
 
 jobs:
   dynamic-sync:
@@ -24,12 +26,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Dynamic Sort and Sync
+      - name: Dynamic Sync
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FORCE_SYNC: ${{ github.event.inputs.force_resync }}
+          SORT_DIR: ${{ github.event.inputs.sort_direction }}
         run: |
-          # 1. 定义项目列表 (格式为 "原仓库|别名")
+          # 1. 定义项目列表
           repos=(
             "2dust/v2rayN|v2rayN"
             "2dust/v2rayNG|v2rayNG"
@@ -45,68 +48,57 @@ jobs:
             "twoone-3/AdGuardHomeForRoot|AdGuardHomeForRoot"
           )
 
-          # 2. 获取每个项目的原作者更新时间，并存入临时文件
-          echo "Fetching upstream dates..."
+          # 2. 抓取时间
           rm -f repo_list.txt
           for item in "${repos[@]}"; do
             src=$(echo $item | cut -d'|' -f1)
             alias=$(echo $item | cut -d'|' -f2)
-            # 获取原仓库最新 Release 的发布时间
             pub_date=$(gh release view --repo $src --json publishedAt --jq .publishedAt 2>/dev/null || echo "1970-01-01T00:00:00Z")
             echo "$pub_date|$src|$alias" >> repo_list.txt
           done
 
-          # 3. 核心：按原作者发布时间进行升序排序 (老的在前，新的在后)
-          # 这样，最新的项目会最后执行同步，从而排在 Release 列表的最顶端
-          sort -o repo_list_sorted.txt repo_list.txt
+          # 3. 根据输入决定排序（asc 是从小到大，desc 是从大到小）
+          if [ "$SORT_DIR" == "desc" ]; then
+            sort -r -o repo_list_sorted.txt repo_list.txt
+          else
+            sort -o repo_list_sorted.txt repo_list.txt
+          fi
           
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 4. 循环处理排序后的项目
           while IFS='|' read -r date src alias; do
-            echo "----------------------------------------------------"
-            echo "Processing $alias (Upstream Update: $date)"
-            
+            echo "Processing $alias (Upstream: $date)"
             ORIGINAL_TAG=$(gh release view --repo $src --json tagName --jq .tagName)
             NEW_TAG="${alias}-${ORIGINAL_TAG}"
 
-            # 检查是否需要同步
             if [ "$FORCE_SYNC" != "true" ]; then
               if gh release view $NEW_TAG > /dev/null 2>&1; then
-                echo "Version $NEW_TAG exists, skipping."
+                echo "Skip $alias"
                 continue
               fi
             fi
 
-            # 产生 Commit 刷新时间戳
+            # 制造 Commit
             mkdir -p sync_logs
-            echo "Sync: $(date '+%Y-%m-%d %H:%M:%S') | Upstream: $date" > sync_logs/${alias}.log
+            echo "$(date) | $date" > sync_logs/${alias}.log
             git add sync_logs/${alias}.log
-            git commit -m "Sync $alias at $(date)" || true
+            git commit -m "Sync $alias" || true
             git pull --rebase origin main
             git push origin main
             
-            # 清理旧版本
-            OLD_TAGS=$(gh release list --limit 100 --json tagName --jq ".[].tagName" | grep "^${alias}-" || true)
-            for tag in $OLD_TAGS; do
-              gh release delete $tag --yes --cleanup-tag
-            done
-
-            # 同步 Assets
-            mkdir -p ./temp_assets
-            rm -rf ./temp_assets/*
+            # 删除旧版
+            gh release delete $NEW_TAG --yes --cleanup-tag 2>/dev/null || true
+            
+            # 同步
+            mkdir -p ./temp_assets && rm -rf ./temp_assets/*
             gh release download $ORIGINAL_TAG --repo $src --pattern "*" --dir ./temp_assets
             
-            TITLE=$(gh release view $ORIGINAL_TAG --repo $src --json name --jq .name)
-            [ -z "$TITLE" ] && TITLE=$ORIGINAL_TAG
-
-            # 发布并标记为 Latest
+            # 发布（去掉最新的 --latest，由脚本顺序决定）
             gh release create $NEW_TAG ./temp_assets/* \
-              --title "[$alias] $TITLE" \
-              --notes "Sync Date: $(date '+%Y-%m-%d %H:%M:%S') | Upstream Update: $date | Source: https://github.com/$src" \
-              --latest
+              --title "[$alias] $(gh release view $ORIGINAL_TAG --repo $src --json name --jq .name || echo $ORIGINAL_TAG)" \
+              --notes "Sync: $(date) | Upstream: $date"
             
-            echo "$alias sync complete!"
-            sleep 2 # 稍微缓冲，确保 GitHub 时间戳有细微差别
+            # 关键：增加间隔，防止 GitHub 合并时间戳
+            sleep 10
           done < repo_list_sorted.txt
