@@ -12,10 +12,6 @@ on:
         description: '是否强制重新同步所有项目'
         required: false
         default: 'false'
-      sort_direction:
-        description: '同步顺序：asc (更新早的最后同步) 或 desc (更新晚的最后同步)'
-        required: false
-        default: 'asc'
 
 jobs:
   dynamic-sync:
@@ -26,11 +22,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Dynamic Sync
+      - name: Dynamic Sync (Top is First)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FORCE_SYNC: ${{ github.event.inputs.force_resync }}
-          SORT_DIR: ${{ github.event.inputs.sort_direction }}
         run: |
           # 1. 定义项目列表
           repos=(
@@ -48,7 +43,7 @@ jobs:
             "twoone-3/AdGuardHomeForRoot|AdGuardHomeForRoot"
           )
 
-          # 2. 抓取时间
+          # 2. 抓取原作者发布时间
           rm -f repo_list.txt
           for item in "${repos[@]}"; do
             src=$(echo $item | cut -d'|' -f1)
@@ -57,18 +52,19 @@ jobs:
             echo "$pub_date|$src|$alias" >> repo_list.txt
           done
 
-          # 3. 根据输入决定排序（asc 是从小到大，desc 是从大到小）
-          if [ "$SORT_DIR" == "desc" ]; then
-            sort -r -o repo_list_sorted.txt repo_list.txt
-          else
-            sort -o repo_list_sorted.txt repo_list.txt
-          fi
+          # 3. 【关键修改】按时间降序排序 (sort -r)
+          # 最新的项目 (比如 4月14日) 会排在文件最前面，第一个执行同步
+          # 根据你的仓库特性，第一个同步的项目会留在列表最上方
+          sort -r -o repo_list_sorted.txt repo_list.txt
           
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          COUNT=0
           while IFS='|' read -r date src alias; do
-            echo "Processing $alias (Upstream: $date)"
+            COUNT=$((COUNT+1))
+            echo "Processing No.$COUNT: $alias (Upstream: $date)"
+            
             ORIGINAL_TAG=$(gh release view --repo $src --json tagName --jq .tagName)
             NEW_TAG="${alias}-${ORIGINAL_TAG}"
 
@@ -79,26 +75,32 @@ jobs:
               fi
             fi
 
-            # 制造 Commit
+            # 制造 Commit 以确定顺序
             mkdir -p sync_logs
-            echo "$(date) | $date" > sync_logs/${alias}.log
+            echo "$(date) | Upstream: $date" > sync_logs/${alias}.log
             git add sync_logs/${alias}.log
-            git commit -m "Sync $alias" || true
+            git commit -m "Sync $alias (Order: $COUNT)" || true
             git pull --rebase origin main
             git push origin main
             
-            # 删除旧版
+            # 删除旧 Release
             gh release delete $NEW_TAG --yes --cleanup-tag 2>/dev/null || true
             
-            # 同步
+            # 下载与发布
             mkdir -p ./temp_assets && rm -rf ./temp_assets/*
             gh release download $ORIGINAL_TAG --repo $src --pattern "*" --dir ./temp_assets
+            TITLE=$(gh release view $ORIGINAL_TAG --repo $src --json name --jq .name || echo $ORIGINAL_TAG)
             
-            # 发布（去掉最新的 --latest，由脚本顺序决定）
+            # 只有第一个（最新更新的项目）标记为 Latest，其余标记为 false
+            IS_LATEST="--latest=false"
+            [ $COUNT -eq 1 ] && IS_LATEST="--latest=true"
+
             gh release create $NEW_TAG ./temp_assets/* \
-              --title "[$alias] $(gh release view $ORIGINAL_TAG --repo $src --json name --jq .name || echo $ORIGINAL_TAG)" \
-              --notes "Sync: $(date) | Upstream: $date"
+              --title "[$alias] $TITLE" \
+              --notes "Sync Date: $(date) | Upstream Update: $date" \
+              $IS_LATEST
             
-            # 关键：增加间隔，防止 GitHub 合并时间戳
-            sleep 10
+            echo "$alias sync complete!"
+            # 每个项目间隔 15 秒，确保 GitHub 能够识别出明显的时间先后
+            sleep 15
           done < repo_list_sorted.txt
