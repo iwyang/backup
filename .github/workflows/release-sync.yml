@@ -53,7 +53,7 @@ jobs:
             echo "$pub_date|$src|$alias" >> repo_list.txt
           done
 
-          # 按时间升序排序，保证 Git 历史线顺畅（老的先提交，新的后提交）
+          # 按时间升序排序，保证 Git 历史线顺畅
           sort -o repo_list_sorted.txt repo_list.txt
           
           git config user.name "github-actions[bot]"
@@ -89,23 +89,19 @@ jobs:
             mkdir -p ./temp_assets && rm -rf ./temp_assets/*
             gh release download $ORIGINAL_TAG --repo $src --pattern "*" --dir ./temp_assets
             
-            # 【优化1】处理原标题为空的情况：如果没抓取到 Title，强制使用 Tag 名称
+            # 处理原标题为空的情况
             TITLE=$(gh release view $ORIGINAL_TAG --repo $src --json name --jq .name)
             if [ -z "$TITLE" ] || [ "$TITLE" == "null" ]; then
               TITLE="$ORIGINAL_TAG"
             fi
             
-            # 【优化2】美化时间显示：将 2026-04-03T01:25:51Z 转换为 2026-04-03 01:25:51
+            # 美化时间显示 (去掉 T 和 Z)
             CLEAN_DATE=$(echo "$date" | tr 'T' ' ' | tr -d 'Z')
             
-            # 【优化3】生成美观的 Markdown 格式说明文件
-            cat <<EOF > release_notes.md
-            * **Sync Date:** $(date '+%Y-%m-%d %H:%M:%S')
-            * **Upstream Update:** $CLEAN_DATE
-            * **Upstream Release:** [🔗 $src@$ORIGINAL_TAG](https://github.com/$src/releases/tag/$ORIGINAL_TAG)
-            EOF
-            # 清除前面可能的空格缩进以保证 markdown 格式正确
-            sed -i 's/^[ \t]*//' release_notes.md
+            # 生成 Markdown 格式说明文件 (改用 echo 以彻底避免缩进导致的语法错误)
+            echo "* **Sync Date:** $(date '+%Y-%m-%d %H:%M:%S')" > release_notes.md
+            echo "* **Upstream Update:** $CLEAN_DATE" >> release_notes.md
+            echo "* **Upstream Release:** [🔗 $src@$ORIGINAL_TAG](https://github.com/$src/releases/tag/$ORIGINAL_TAG)" >> release_notes.md
             
             # 创建 Release
             gh release create $NEW_TAG ./temp_assets/* \
