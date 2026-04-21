@@ -96,7 +96,7 @@ jobs:
             # 创建 Release
             gh release create $NEW_TAG ./temp_assets/* \
               --title "[$alias] $TITLE" \
-              --notes "Sync Date: $(date '+%Y-%m-%d %H:%M:%S') | Upstream Update: $date"
+              --notes "Sync Date: $(date '+%Y-%m-%d %H:%M:%S') | Upstream Update: $date | 原链接: https://github.com/$src/releases/tag/$ORIGINAL_TAG"
             
             echo "$alias 同步完成!"
           done < repo_list_sorted.txt
