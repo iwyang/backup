@@ -53,7 +53,9 @@ jobs:
             echo "$pub_date|$src|$alias" >> repo_list.txt
           done
 
-          # 按时间升序排序，保证 Git 历史线顺畅
+          # 【排序关键】：升序排序。
+          # 这样老的版本先处理，最新的版本最后处理。
+          # GitHub 会把最后创建的 Release 放在页面最上方。
           sort -o repo_list_sorted.txt repo_list.txt
           
           git config user.name "github-actions[bot]"
@@ -89,19 +91,17 @@ jobs:
             mkdir -p ./temp_assets && rm -rf ./temp_assets/*
             gh release download $ORIGINAL_TAG --repo $src --pattern "*" --dir ./temp_assets
             
-            # 处理原标题为空的情况
             TITLE=$(gh release view $ORIGINAL_TAG --repo $src --json name --jq .name)
             if [ -z "$TITLE" ] || [ "$TITLE" == "null" ]; then
               TITLE="$ORIGINAL_TAG"
             fi
             
-            # 美化时间显示 (去掉 T 和 Z)
+            # 格式化时间
             CLEAN_DATE=$(echo "$date" | tr 'T' ' ' | tr -d 'Z')
+            SYNC_TIME=$(date '+%Y-%m-%d %H:%M:%S')
             
-            # 生成 Markdown 格式说明文件 (改用 echo 以彻底避免缩进导致的语法错误)
-            echo "* **Sync Date:** $(date '+%Y-%m-%d %H:%M:%S')" > release_notes.md
-            echo "* **Upstream Update:** $CLEAN_DATE" >> release_notes.md
-            echo "* **Upstream Release:** [🔗 $src@$ORIGINAL_TAG](https://github.com/$src/releases/tag/$ORIGINAL_TAG)" >> release_notes.md
+            # 【优化】：合并为一行，使用 | 符号分隔
+            echo "**Upstream Release:** [🔗 $src@$ORIGINAL_TAG](https://github.com/$src/releases/tag/$ORIGINAL_TAG) | **Upstream Update:** $CLEAN_DATE | **Sync Date:** $SYNC_TIME" > release_notes.md
             
             # 创建 Release
             gh release create $NEW_TAG ./temp_assets/* \
