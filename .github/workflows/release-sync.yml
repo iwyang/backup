@@ -53,17 +53,14 @@ jobs:
             echo "$pub_date|$src|$alias" >> repo_list.txt
           done
 
-          # 【关键修正 1】：按时间升序排列（从旧到新）
-          # 这样脚本会先创建旧的 Release，最后创建最新的 Release。
-          # GitHub 会把最后创建的那一个放在最上面。
+          # 【升序排列】：按照时间从旧到新处理，确保时间线顺畅
           sort -t'|' -k1,1 repo_list.txt -o repo_list_sorted.txt
           
-          # 计算总数，用来判断哪一个是最后一个（最新的）
-          total_items=$(wc -l < repo_list_sorted.txt)
-          current_index=0
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          total_items=$(wc -l < repo_list_sorted.txt)
+          current_index=0
 
           while IFS='|' read -r date src alias; do
             current_index=$((current_index + 1))
@@ -80,21 +77,18 @@ jobs:
               fi
             fi
 
-            # 模拟 Git 提交时间
+            # 【核心修复】：注入穿越时间
             export GIT_AUTHOR_DATE="$date"
             export GIT_COMMITTER_DATE="$date"
 
-            mkdir -p sync_logs
-            echo "Upstream Date: $date" > sync_logs/${alias}.log
-            git add sync_logs/${alias}.log
-            
-            git commit -m "Sync $alias version $ORIGINAL_TAG" || true
-            git pull --rebase origin main
+            # 使用 --allow-empty 强制产生一个 Commit。
+            # 这样就算没有文件变化，这个 Tag 也会绑定到一个具有独立时间的 Commit 上，GitHub 排序就不会乱了！
+            git commit --allow-empty -m "Release $alias $ORIGINAL_TAG"
+            git pull --rebase origin main || true
             git push origin main
             
-            # 删除旧 Release
+            # 清理旧数据并下载新资源
             gh release delete $NEW_TAG --yes --cleanup-tag 2>/dev/null || true
-            
             mkdir -p ./temp_assets && rm -rf ./temp_assets/*
             gh release download $ORIGINAL_TAG --repo $src --pattern "*" --dir ./temp_assets
             
@@ -108,7 +102,7 @@ jobs:
             
             echo "**Upstream Release:** [🔗 $src@$ORIGINAL_TAG](https://github.com/$src/releases/tag/$ORIGINAL_TAG) | **Upstream Update:** $CLEAN_DATE | **Sync Date:** $SYNC_TIME" > release_notes.md
             
-            # 【关键修正 2】：只有最后一个（时间最晚的）才标记为 --latest
+            # 将排在最后的一个（时间最新的）标记为 Latest
             if [ "$current_index" -eq "$total_items" ]; then
               echo "标记为最新的 Release..."
               gh release create $NEW_TAG ./temp_assets/* \
@@ -123,5 +117,5 @@ jobs:
             fi
             
             echo "$alias 同步完成！"
-            sleep 2 # 确保创建顺序不被打乱
+            sleep 2
           done < repo_list_sorted.txt
