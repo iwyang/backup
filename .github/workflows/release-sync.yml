@@ -76,6 +76,16 @@ jobs:
               fi
             fi
 
+            # ==== 新增代码：清理同别名的历史 Release ====
+            echo "正在清理 [$alias] 的历史旧版本..."
+            # 获取当前仓库里所有以该 alias- 开头的 tag 并遍历删除
+            OLD_TAGS=$(gh release list --limit 1000 | grep "^${alias}-" | awk '{print $1}' || true)
+            for OLD_TAG in $OLD_TAGS; do
+              echo "删除旧版本: $OLD_TAG"
+              gh release delete "$OLD_TAG" --yes --cleanup-tag 2>/dev/null || true
+            done
+            # ============================================
+
             # 【核心修复】：注入穿越时间
             export GIT_AUTHOR_DATE="$date"
             export GIT_COMMITTER_DATE="$date"
@@ -86,8 +96,7 @@ jobs:
             git pull --rebase origin main || true
             git push origin main
             
-            # 清理旧数据并下载新资源
-            gh release delete $NEW_TAG --yes --cleanup-tag 2>/dev/null || true
+            # 下载新资源 (移除原本针对单一新 Tag 的 delete 兜底，因为上面已经全删了)
             mkdir -p ./temp_assets && rm -rf ./temp_assets/*
             gh release download $ORIGINAL_TAG --repo $src --pattern "*" --dir ./temp_assets
             
