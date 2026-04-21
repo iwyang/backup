@@ -49,17 +49,18 @@ jobs:
           for item in "${repos[@]}"; do
             src=$(echo $item | cut -d'|' -f1)
             alias=$(echo $item | cut -d'|' -f2)
-            # 抓取发布时间
             pub_date=$(gh release view --repo $src --json publishedAt --jq .publishedAt 2>/dev/null || echo "1970-01-01T00:00:00Z")
             echo "$pub_date|$src|$alias" >> repo_list.txt
           done
 
-          # 【关键排序】：按时间升序排列（旧的在前，新的在后）
-          # 这样脚本会按时间顺序从旧到新依次处理，保证最新的 Release 最后被创建，从而排在 GitHub 列表的最顶端。
-          sort -t'|' -k1,1 repo_list.txt -o repo_list_sorted.txt
+          # 【核心修改 1】：改为降序排序（-r）。
+          # 让 Upstream Update 最新的项目排在文件最前面，第一个被创建。
+          sort -r -t'|' -k1,1 repo_list.txt -o repo_list_sorted.txt
           
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          is_first=true # 标记是否为第一个（即最新的）项目
 
           while IFS='|' read -r date src alias; do
             echo "=========================================="
@@ -71,11 +72,11 @@ jobs:
             if [ "$FORCE_SYNC" != "true" ]; then
               if gh release view $NEW_TAG > /dev/null 2>&1; then
                 echo "跳过已存在的: $alias"
+                is_first=false # 即使跳过，也要标记后续项目不再是 Latest
                 continue
               fi
             fi
 
-            # 设置 Git 提交时间为原作者更新时间
             export GIT_AUTHOR_DATE="$date"
             export GIT_COMMITTER_DATE="$date"
 
@@ -87,7 +88,6 @@ jobs:
             git pull --rebase origin main
             git push origin main
             
-            # 删除旧 Release 并重新同步资源
             gh release delete $NEW_TAG --yes --cleanup-tag 2>/dev/null || true
             
             mkdir -p ./temp_assets && rm -rf ./temp_assets/*
@@ -98,18 +98,26 @@ jobs:
               TITLE="$ORIGINAL_TAG"
             fi
             
-            # 格式化时间与内容
             CLEAN_DATE=$(echo "$date" | tr 'T' ' ' | tr -d 'Z')
             SYNC_TIME=$(date '+%Y-%m-%d %H:%M:%S')
             
-            # 【优化】：合并为一行展示
             echo "**Upstream Release:** [🔗 $src@$ORIGINAL_TAG](https://github.com/$src/releases/tag/$ORIGINAL_TAG) | **Upstream Update:** $CLEAN_DATE | **Sync Date:** $SYNC_TIME" > release_notes.md
             
-            # 创建 Release
-            gh release create $NEW_TAG ./temp_assets/* \
-              --title "[$alias] $TITLE" \
-              --notes-file release_notes.md
+            # 【核心修改 2】：显式指定 --latest 标记
+            # 只有处理第一个项目（时间最晚的项目）时标记为 latest，确保它在网页最上方显示
+            if [ "$is_first" = true ]; then
+              gh release create $NEW_TAG ./temp_assets/* \
+                --title "[$alias] $TITLE" \
+                --notes-file release_notes.md \
+                --latest
+              is_first=false
+            else
+              gh release create $NEW_TAG ./temp_assets/* \
+                --title "[$alias] $TITLE" \
+                --notes-file release_notes.md \
+                --latest=false
+            fi
             
             echo "$alias 同步完成！"
-            sleep 2 # 增加短暂延迟，防止 GitHub API 排序混淆
+            sleep 2
           done < repo_list_sorted.txt
