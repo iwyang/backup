@@ -48,8 +48,8 @@ jobs:
           for item in "${repos[@]}"; do
             src=$(echo "$item" | cut -d'|' -f1)
             alias=$(echo "$item" | cut -d'|' -f2)
-            # 必须使用 -r 确保获取纯文本时间
-            pub_date=$(gh release view --repo "$src" --json publishedAt --jq .publishedAt -r 2>/dev/null || echo "1970-01-01T00:00:00Z")
+            # gh cli jq 默认输出纯文本，去除了导致报错的 -r
+            pub_date=$(gh release view --repo "$src" --json publishedAt --jq .publishedAt 2>/dev/null || echo "1970-01-01T00:00:00Z")
             echo "$pub_date|$src|$alias" >> repo_list.txt
           done
 
@@ -66,8 +66,8 @@ jobs:
             echo "=========================================="
             echo "正在处理 [$current_index/$total_items]: $alias"
             
-            # 必须使用 -r 获取纯文本 TagName
-            ORIGINAL_TAG=$(gh release view --repo "$src" --json tagName --jq .tagName -r)
+            # 去除了导致报错的 -r
+            ORIGINAL_TAG=$(gh release view --repo "$src" --json tagName --jq .tagName)
             NEW_TAG="${alias}-${ORIGINAL_TAG}"
 
             if [ "$FORCE_SYNC" != "true" ]; then
@@ -77,8 +77,8 @@ jobs:
               fi
             fi
 
-            # 清理旧版本
-            OLD_TAGS=$(gh release list --limit 100 --json tagName --jq ".[].tagName" -r | grep "^${alias}-" || true)
+            # 清理旧版本 (去除了导致报错的 -r)
+            OLD_TAGS=$(gh release list --limit 100 --json tagName --jq ".[].tagName" | grep "^${alias}-" || true)
             for OLD_TAG in $OLD_TAGS; do
               gh release delete "$OLD_TAG" --yes --cleanup-tag 2>/dev/null || true
             done
