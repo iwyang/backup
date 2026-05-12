@@ -48,11 +48,12 @@ jobs:
           for item in "${repos[@]}"; do
             src=$(echo "$item" | cut -d'|' -f1)
             alias=$(echo "$item" | cut -d'|' -f2)
-            # gh cli jq 默认输出纯文本，去除了导致报错的 -r
+            # 获取发布时间
             pub_date=$(gh release view --repo "$src" --json publishedAt --jq .publishedAt 2>/dev/null || echo "1970-01-01T00:00:00Z")
             echo "$pub_date|$src|$alias" >> repo_list.txt
           done
 
+          # 按第一列（pub_date）排序，默认是字典序，对于 ISO 时间格式等同于时间先后顺序
           sort -t'|' -k1,1 repo_list.txt -o repo_list_sorted.txt
           
           git config user.name "github-actions[bot]"
@@ -66,7 +67,6 @@ jobs:
             echo "=========================================="
             echo "正在处理 [$current_index/$total_items]: $alias"
             
-            # 去除了导致报错的 -r
             ORIGINAL_TAG=$(gh release view --repo "$src" --json tagName --jq .tagName)
             NEW_TAG="${alias}-${ORIGINAL_TAG}"
 
@@ -77,7 +77,7 @@ jobs:
               fi
             fi
 
-            # 清理旧版本 (去除了导致报错的 -r)
+            # 清理旧版本
             OLD_TAGS=$(gh release list --limit 100 --json tagName --jq ".[].tagName" | grep "^${alias}-" || true)
             for OLD_TAG in $OLD_TAGS; do
               gh release delete "$OLD_TAG" --yes --cleanup-tag 2>/dev/null || true
@@ -105,9 +105,15 @@ jobs:
             CLEAN_DATE=$(echo "$date" | tr 'T' ' ' | tr -d 'Z')
             SYNC_TIME=$(date '+%Y-%m-%d %H:%M:%S')
             
+            # 生成 release_notes.md，并将更新日志放入折叠块中
             echo "**Upstream Release:** [🔗 $src@$ORIGINAL_TAG](https://github.com/$src/releases/tag/$ORIGINAL_TAG) | **Upstream Update:** $CLEAN_DATE | **Sync Date:** $SYNC_TIME" > release_notes.md
-            echo -e "\n---\n\n### Upstream Release Notes / 原作者更新日志：\n" >> release_notes.md
+            echo -e "\n---\n" >> release_notes.md
+            echo "<details>" >> release_notes.md
+            echo "<summary><b>点击展开 / 折叠原作者更新日志</b></summary>" >> release_notes.md
+            echo "" >> release_notes.md
             cat upstream_body.txt >> release_notes.md
+            echo "" >> release_notes.md
+            echo "</details>" >> release_notes.md
 
             # 确定是否标记为最新
             LATEST_FLAG="--latest=false"
