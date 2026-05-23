@@ -41,7 +41,7 @@ jobs:
             "JingMatrix/LSPosed|LSPosed"
             "Xposed-Modules-Repo/com.y7.fingerpay|com.y7.fingerpay"
             "twoone-3/AdGuardHomeForRoot|AdGuardHomeForRoot"
-            "Xposed-Modules-Repo/com.luckyzyx.luckytool"            
+            "Xposed-Modules-Repo/com.luckyzyx.luckytool|luckytool"            
           )
 
           echo "正在获取各项目原作者发布时间..."
