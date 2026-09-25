@@ -37,7 +37,7 @@ jobs:
             "eritpchy/FingerprintPay|FingerprintPay"
             "connectbot/connectbot|connectbot"
             "koreader/koreader|koreader"
-            "Dr-TSNG/ZygiskNext|ZygiskNext"
+            "LSPosed/ZygiskNext|ZygiskNext"
             "JingMatrix/LSPosed|LSPosed"
             "Xposed-Modules-Repo/com.y7.fingerpay|com.y7.fingerpay"
             "twoone-3/AdGuardHomeForRoot|AdGuardHomeForRoot"
