@@ -42,7 +42,8 @@ jobs:
             "Xposed-Modules-Repo/com.y7.fingerpay|com.y7.fingerpay"
             "twoone-3/AdGuardHomeForRoot|AdGuardHomeForRoot"
             "Xposed-Modules-Repo/com.luckyzyx.luckytool|luckytool" 
-            "MoonTechLab/Selene|Selene"            
+            "MoonTechLab/Selene|Selene"
+            "henrypp/memreduct|memreduct"                
           )
 
           echo "正在获取各项目原作者发布时间..."
