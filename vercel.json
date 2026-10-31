@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/bore-api/home",
+      "destination": "https://bore.vip/"
+    },
+    {
+      "source": "/bore-api/:path*",
+      "destination": "https://bore.vip/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/bore-api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=300, stale-while-revalidate=600" }
+      ]
+    }
+  ]
+}

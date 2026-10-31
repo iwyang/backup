@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bore's Notes 实时动态导览 | 博观而约取，厚积而薄发</title>
+  <style>
+    :root[data-theme="light"] {
+      --bg-body: #f5f5fa;
+      --bg-card: #ffffff;
+      --bg-card-hover: #f8fafc;
+      --bg-accent: #eef2ff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --tag-bg: #f8fafc;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+    }
+
+    :root[data-theme="dark"] {
+      --bg-body: #0f172a;
+      --bg-card: #1e293b;
+      --bg-card-hover: #26354d;
+      --bg-accent: rgba(59, 130, 246, 0.12);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+      --primary: #60a5fa;
+      --primary-hover: #93c5fd;
+      --tag-bg: #0f172a;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --shadow: 0 8px 25px -4px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      line-height: 1.6;
+      transition: background-color 0.3s ease, color 0.3s ease;
+      padding: 24px 16px;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .container {
+      max-width: 1240px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 265px 1fr 285px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+      .container {
+        grid-template-columns: 240px 1fr;
+      }
+      .right-sidebar {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 20px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
+    }
+
+    /* 左侧边栏 */
+    .left-sidebar {
+      position: sticky;
+      top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .profile-header {
+      text-align: center;
+    }
+
+    .avatar-wrap {
+      position: relative;
+      width: 110px;
+      height: 110px;
+      margin: 0 auto 14px;
+    }
+
+    .avatar {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid var(--primary);
+      background: var(--tag-bg);
+    }
+
+    .avatar-badge {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .site-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .site-motto {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border-color: var(--border-color);
+      color: var(--text-main);
+    }
+
+    .btn-outline:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--primary);
+    }
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .nav-list a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      color: var(--text-main);
+      transition: background 0.2s;
+    }
+
+    .nav-list a:hover {
+      background: var(--bg-accent);
+      color: var(--primary);
+    }
+
+    /* 中间内容区 */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .shuoshuo-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-left: 4px solid var(--primary);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .shuoshuo-badge {
+      background: var(--bg-accent);
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 0.8rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .shuoshuo-text {
+      flex: 1;
+      font-size: 0.92rem;
+      color: var(--text-main);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .shuoshuo-controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    .icon-btn {
+      background: var(--tag-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .icon-btn:hover {
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .section-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sync-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--tag-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--warning);
+    }
+
+    .dot.live {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .bento-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .bento-item {
+      padding: 18px;
+      border-radius: 12px;
+      background: var(--tag-bg);
+      border: 1px solid var(--border-color);
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .bento-item:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+    }
+
+    .bento-item h3 {
+      font-size: 1rem;
+      margin-bottom: 8px;
+      color: var(--primary);
+    }
+
+    .bento-item p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .filter-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tab-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      border: 1px solid var(--border-color);
+      background: var(--tag-bg);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active,
+    .tab-btn:hover {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .search-input {
+      padding: 7px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background: var(--tag-bg);
+      color: var(--text-main);
+      font-size: 0.85rem;
+      outline: none;
+      min-width: 200px;
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+    }
+
+    .post-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .post-card {
+      display: block;
+      padding: 18px 20px;
+      border-radius: 12px;
+      background: var(--tag-bg);
+      border: 1px solid var(--border-color);
+      transition: all 0.2s ease;
+    }
+
+    .post-card:hover {
+      border-color: var(--primary);
+      background: var(--bg-card-hover);
+      transform: translateX(4px);
+    }
+
+    .post-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .post-cat {
+      background: var(--bg-accent);
+      color: var(--primary);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .post-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .post-desc {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* 右侧边栏 */
+    .right-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .info-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 0.88rem;
+    }
+
+    .info-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px dashed var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .info-list li span:first-child {
+      color: var(--text-muted);
+    }
+
+    .archive-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .archive-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--tag-bg);
+      border: 1px solid var(--border-color);
+      font-size: 0.86rem;
+    }
+
+    .archive-box:hover {
+      border-color: var(--primary);
+    }
+
+    .archive-count {
+      background: var(--bg-accent);
+      color: var(--primary);
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    .tag-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      padding: 5px 11px;
+      border-radius: 8px;
+      background: var(--tag-bg);
+      border: 1px solid var(--border-color);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+
+    .tag:hover {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 36px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- 左侧栏 -->
+    <aside class="left-sidebar">
+      <div class="card profile-header">
+        <div class="avatar-wrap">
+          <img class="avatar" src="https://bore.vip/img/avatar.png" alt="Bore Avatar" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=Bore'">
+          <span class="avatar-badge" title="鱼板印记">🍥</span>
+        </div>
+        <h1 class="site-title">Bore's Notes</h1>
+        <p class="site-motto">“博观而约取，厚积而薄发”</p>
+        <div class="btn-group">
+          <a href="https://bore.vip/" target="_blank" rel="noopener" class="btn btn-primary">
+            🚀 访问博客主站 (bore.vip)
+          </a>
+          <button id="syncBtn" class="btn btn-outline">
+            🔄 立即同步最新内容
+          </button>
+          <button id="themeToggle" class="btn btn-outline">
+            🌙 切换深色模式
+          </button>
+        </div>
+      </div>
+
+      <nav class="card">
+        <div class="section-title" style="margin-bottom: 12px;">🧭 站内直达导航</div>
+        <ul class="nav-list">
+          <li><a href="https://bore.vip/" target="_blank"><span>🏠 主页</span><span>→</span></a></li>
+          <li><a href="https://bore.vip/archives/" target="_blank"><span>🗂️ 历史归档</span><span>→</span></a></li>
+          <li><a href="https://bore.vip/shuoshuo/" target="_blank"><span>💬 说说微动态</span><span>→</span></a></li>
+          <li><a href="https://bore.vip/search/" target="_blank"><span>🔍 全文搜索</span><span>→</span></a></li>
+          <li><a href="https://bore.vip/link/" target="_blank"><span>🔗 友情链接</span><span>→</span></a></li>
+          <li><a href="https://bore.vip/about/" target="_blank"><span>👤 关于博主</span><span>→</span></a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- 中间栏 -->
+    <main class="main-content">
+      <!-- 顶部“说说”微动态轮播 -->
+      <div class="shuoshuo-bar">
+        <span class="shuoshuo-badge">💬 最新说说</span>
+        <a href="https://bore.vip/shuoshuo/" target="_blank" id="shuoshuoContent" class="shuoshuo-text">
+          正在同步 bore.vip 最新说说...
+        </a>
+        <div class="shuoshuo-controls">
+          <button class="icon-btn" id="prevShuo" title="上一条">‹</button>
+          <button class="icon-btn" id="nextShuo" title="下一条">›</button>
+        </div>
+      </div>
+
+      <!-- 最新文章列表 -->
+      <section class="card">
+        <div class="section-header">
+          <h2 class="section-title">📚 博客最新文章流</h2>
+          <div class="sync-pill">
+            <span class="dot" id="syncDot"></span>
+            <span id="syncStatusText">正在连接同步通道...</span>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="filter-tabs" id="filterTabs">
+            <button class="tab-btn active" data-filter="all">全部文章</button>
+            <button class="tab-btn" data-filter="devops">建站与 Linux</button>
+            <button class="tab-btn" data-filter="koreader">KOReader 专栏</button>
+            <button class="tab-btn" data-filter="tips">Windows 与教学</button>
+          </div>
+          <input type="text" id="searchInput" class="search-input" placeholder="🔍 搜索全站标题或摘要...">
+        </div>
+
+        <div class="post-list" id="postList"></div>
+      </section>
+
+      <!-- 核心内容板块介绍 -->
+      <section class="card">
+        <h2 class="section-title" style="margin-bottom: 14px;">✨ 博客核心定位与四大板块</h2>
+        <div class="bento-grid">
+          <div class="bento-item">
+            <h3>🛠️ 建站运维与自建服务</h3>
+            <p>深入记录 Hugo 与 Hexo 静态博客搭建、Nginx + Certbot SSL 证书续期排障、GitHub Actions 自动同步仓库、Alist 挂载网盘、Memos 笔记部署及 Debian Linux 桌面配置。</p>
+          </div>
+          <div class="bento-item">
+            <h3>📖 KOReader 阅读自动化闭环</h3>
+            <p>打造从安卓与 Win11 端 KOReader 进度同步、Dropbox 自动备份，到将读书笔记自动拆分排版并一键推送至 Hugo 博客的全平台自动化工作流。</p>
+          </div>
+          <div class="bento-item">
+            <h3>💻 Windows 与办公排障利器</h3>
+            <p>汇集局域网共享打印机连接、PE 启动盘进入方式、Process Lasso / Mem Reduct 内存优化、PDF 多页合并打印、Office 默认字体修改等高频实用技巧。</p>
+          </div>
+          <div class="bento-item">
+            <h3>📐 小学数学教学与电教实践</h3>
+            <p>博主兼具一线教师背景，站内记录了低年级数学直观口诀（如钟面方向参照、镜面左右对称）及校园希沃一体机进入调试菜单安装 APK 等电教实操经验。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 右侧栏 -->
+    <aside class="right-sidebar">
+      <div class="card">
+        <h2 class="section-title" style="margin-bottom: 14px;">⚡ 站点实时状态</h2>
+        <ul class="info-list">
+          <li><span>域名地址</span><a href="https://bore.vip" target="_blank" style="color:var(--primary)">bore.vip</a></li>
+          <li><span>同步引擎</span><span id="proxyModeText">Vercel Edge Rewrite</span></li>
+          <li><span>最后部署时间</span><span id="lastDeployTime">检测中...</span></li>
+          <li><span>最新 Commit</span><a id="lastCommitLink" href="https://github.com/iwyang/iwyang.github.io" target="_blank" style="color:var(--primary)">#54aae04</a></li>
+          <li><span>采用主题</span><span>Hugo Theme Stack</span></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title" style="margin-bottom: 14px;">📅 历年归档概览</h2>
+        <div class="archive-grid" id="archiveGrid">
+          <a class="archive-box" href="https://bore.vip/archives/#2026" target="_blank"><span>2026 年</span><span class="archive-count">3 篇</span></a>
+          <a class="archive-box" href="https://bore.vip/archives/#2024" target="_blank"><span>2024 年</span><span class="archive-count">2 篇</span></a>
+          <a class="archive-box" href="https://bore.vip/archives/#2023" target="_blank"><span>2023 年</span><span class="archive-count">4 篇</span></a>
+          <a class="archive-box" href="https://bore.vip/archives/#2022" target="_blank"><span>2022 年</span><span class="archive-count">14 篇</span></a>
+          <a class="archive-box" href="https://bore.vip/archives/#2021" target="_blank"><span>2021 年</span><span class="archive-count">20 篇</span></a>
+          <a class="archive-box" href="https://bore.vip/archives/#2020" target="_blank"><span>2020 及更早</span><span class="archive-count">更多</span></a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title" style="margin-bottom: 14px;">🏷️ 热门标签云</h2>
+        <div class="tag-cloud" id="tagCloud">
+          <a class="tag" href="https://bore.vip/tags/%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" target="_blank"># 学习笔记</a>
+          <a class="tag" href="https://bore.vip/tags/linux/" target="_blank"># Linux</a>
+          <a class="tag" href="https://bore.vip/tags/hugo/" target="_blank"># Hugo</a>
+          <a class="tag" href="https://bore.vip/tags/hexo/" target="_blank"># Hexo</a>
+          <a class="tag" href="https://bore.vip/tags/tips/" target="_blank"># Tips</a>
+          <a class="tag" href="https://bore.vip/tags/github/" target="_blank"># Github</a>
+          <a class="tag" href="https://bore.vip/tags/windows/" target="_blank"># Windows</a>
+          <a class="tag" href="https://bore.vip/tags/office/" target="_blank"># Office</a>
+          <a class="tag" href="https://bore.vip/tags/%E4%B8%80%E5%B9%B4%E7%BA%A7%E6%95%B0%E5%AD%A6/" target="_blank"># 一年级数学</a>
+          <a class="tag" href="https://bore.vip/tags/%E4%BA%8C%E5%B9%B4%E7%BA%A7%E6%95%B0%E5%AD%A6/" target="_blank"># 二年级数学</a>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>
+    <p>实时数据同步自 <a href="https://bore.vip/" target="_blank" style="color:var(--primary)">Bore's Notes (bore.vip)</a> · 基于 GitHub & Vercel 构建部署</p>
+  </footer>
+
+  <script>
+    // ==========================================
+    // 0. 离线/初始兜底数据
+    // ==========================================
+    const FALLBACK_POSTS = [
+      {
+        title: "Certbot SSL 证书续期失败排查与修复终极指南 (Hugo + Nginx 进阶版)",
+        link: "https://bore.vip/archives/certbot-ssl-renewal-troubleshooting/",
+        date: "2026-04-13",
+        desc: "深入解析从目录迁移、Nginx 跳转拦截到无效域名清理的 SSL 证书续期全套方案，助力博客稳定运行。",
+        category: "devops",
+        catLabel: "建站与运维"
+      },
+      {
+        title: "KOReader 笔记 (安卓+Win11) 无缝自动发布至 Hugo 博客",
+        link: "https://bore.vip/archives/koreader-sync-ultimate-guide/",
+        date: "2026-02-28",
+        desc: "从手机同步到桌面一键推送，从自动拆分排版到免冲突发布，打造涵盖全平台、坚不可摧的读书笔记全自动闭环。",
+        category: "koreader",
+        catLabel: "KOReader 专栏"
+      },
+      {
+        title: "KOReader 自建进度同步与 Dropbox 全自动备份终极指南",
+        link: "https://bore.vip/archives/f2d557e4/",
+        date: "2026-02-26",
+        desc: "详解跨设备阅读进度同步服务搭建与云端自动备份配置方案。",
+        category: "koreader",
+        catLabel: "KOReader 专栏"
+      },
+      {
+        title: "debian 10安装xfce桌面和配置vnc和wine",
+        link: "https://bore.vip/archives/26d4b8da/",
+        date: "2024-07-18",
+        desc: "轻量级 Linux 服务器可视化桌面环境搭建与远程连接配置完整记录。",
+        category: "devops",
+        catLabel: "Linux 折腾"
+      },
+      {
+        title: "Alist挂载网盘",
+        link: "https://bore.vip/archives/c6592a10/",
+        date: "2024-04-06",
+        desc: "利用开源工具打造个人云盘聚合中心与清爽的私有化网盘挂载方案。",
+        category: "devops",
+        catLabel: "自建服务"
+      }
+    ];
+
+    const FALLBACK_SHUOSHUO = [
+      "2026-10-29：面对镜子，左右相反。伸左手，镜子里面伸右手。",
+      "2026-09-25：多开CPU内存优化软件 — CPU管理 Process Lasso，内存优化 Mem Reduct",
+      "2026-09-23：以自身为参照物，正前方是12点钟方向，正后方就是6点钟方向。",
+      "2026-09-16：添加共享打印机的方法：按 Win + R，输入 \\\\共享电脑IP地址，回车连接。",
+      "2026-09-13：新希沃一体机进入调试菜单安装apk：关机长按电源键30秒直到红白闪烁松手 → 快速敲击屏幕。"
+    ];
+
+    let currentPosts = [...FALLBACK_POSTS];
+    let shuoshuoData = [...FALLBACK_SHUOSHUO];
+    let shuoIndex = 0;
+    let currentFilter = 'all';
+
+    // ==========================================
+    // 1. 浅色 / 深色主题切换（默认浅色）
+    // ==========================================
+    const themeToggle = document.getElementById('themeToggle');
+    const htmlEl = document.documentElement;
+    themeToggle.addEventListener('click', () => {
+      const current = htmlEl.getAttribute('data-theme');
+      const next = current === 'light' ? 'dark' : 'light';
+      htmlEl.setAttribute('data-theme', next);
+      themeToggle.textContent = next === 'light' ? '🌙 切换深色模式' : '☀️ 切换浅色模式';
+    });
+
+    // ==========================================
+    // 2. 智能分类与文本清洗
+    // ==========================================
+    function detectCategory(title, desc) {
+      const text = (title + " " + desc).toLowerCase();
+      if (text.includes("koreader") || text.includes("阅读") || text.includes("读书笔记")) {
+        return { category: "koreader", catLabel: "KOReader 专栏" };
+      }
+      if (text.includes("office") || text.includes("ps") || text.includes("windows") || text.includes("打印") || text.includes("数学") || text.includes("教学")) {
+        return { category: "tips", catLabel: "Windows 与教学" };
+      }
+      return { category: "devops", catLabel: "技术与运维" };
+    }
+
+    function stripHtml(html) {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = html || "";
+      const clean = (tmp.textContent || tmp.innerText || "").replace(/\s+/g, " ").trim();
+      return clean.length > 120 ? clean.slice(0, 120) + "..." : (clean || "点击前往 bore.vip 阅读完整文章内容...");
+    }
+
+    // ==========================================
+    // 3. 渲染文章列表与实时搜索
+    // ==========================================
+    const postListEl = document.getElementById('postList');
+    const searchInput = document.getElementById('searchInput');
+
+    function renderPosts() {
+      const keyword = searchInput.value.trim().toLowerCase();
+      const filtered = currentPosts.filter(post => {
+        const matchCat = currentFilter === 'all' || post.category === currentFilter;
+        const matchKey = !keyword || post.title.toLowerCase().includes(keyword) || post.desc.toLowerCase().includes(keyword);
+        return matchCat && matchKey;
+      });
+
+      if (filtered.length === 0) {
+        postListEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);">未找到匹配的文章</div>`;
+        return;
+      }
+
+      // 默认展示前 15 篇，搜索时展示全部匹配结果
+      const listToShow = keyword ? filtered : filtered.slice(0, 15);
+      postListEl.innerHTML = listToShow.map(post => `
+        <a class="post-card" href="${post.link}" target="_blank" rel="noopener">
+          <div class="post-meta">
+            <span class="post-cat">${post.catLabel}</span>
+            <span>📅 ${post.date}</span>
+          </div>
+          <div class="post-title">${post.title}</div>
+          <div class="post-desc">${post.desc}</div>
+        </a>
+      `).join('');
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentFilter = tab.getAttribute('data-filter');
+        renderPosts();
+      });
+    });
+
+    searchInput.addEventListener('input', renderPosts);
+
+    // ==========================================
+    // 4. 说说轮播控制
+    // ==========================================
+    const shuoEl = document.getElementById('shuoshuoContent');
+    function renderShuo() {
+      if (shuoshuoData.length > 0) {
+        shuoEl.textContent = shuoshuoData[shuoIndex % shuoshuoData.length];
+      }
+    }
+    document.getElementById('prevShuo').addEventListener('click', () => {
+      shuoIndex = (shuoIndex - 1 + shuoshuoData.length) % shuoshuoData.length;
+      renderShuo();
+    });
+    document.getElementById('nextShuo').addEventListener('click', () => {
+      shuoIndex = (shuoIndex + 1) % shuoshuoData.length;
+      renderShuo();
+    });
+    setInterval(() => {
+      shuoIndex = (shuoIndex + 1) % shuoshuoData.length;
+      renderShuo();
+    }, 5000);
+
+    // ==========================================
+    // 5. Vercel 同源代理优先 + 公共代理容灾引擎
+    // ==========================================
+    const syncDot = document.getElementById('syncDot');
+    const syncStatusText = document.getElementById('syncStatusText');
+    const syncBtn = document.getElementById('syncBtn');
+    const proxyModeText = document.getElementById('proxyModeText');
+
+    function parseRssXml(xmlText) {
+      const xmlDoc = new DOMParser().parseFromString(xmlText, "text/xml");
+      const items = Array.from(xmlDoc.querySelectorAll("item"));
+      if (!items.length) throw new Error("Empty XML");
+
+      return items.map(item => {
+        const title = item.querySelector("title")?.textContent || "无标题";
+        const link = item.querySelector("link")?.textContent || "https://bore.vip/";
+        const pubDateRaw = item.querySelector("pubDate")?.textContent || "";
+        const dateObj = pubDateRaw ? new Date(pubDateRaw) : new Date();
+        const date = !isNaN(dateObj) ? dateObj.toISOString().split('T')[0] : pubDateRaw.slice(0, 10);
+        const desc = stripHtml(item.querySelector("description")?.textContent || "");
+        const { category, catLabel } = detectCategory(title, desc);
+        return { title, link, date, desc, category, catLabel };
+      });
+    }
+
+    // 同步文章：优先 Vercel /bore-api/index.json 与 /bore-api/index.xml
+    async function syncLatestArticles() {
+      // 1. 优先尝试 Vercel 同源代理拉取全站 JSON 索引 (包含所有历史文章)
+      try {
+        const res = await fetch("/bore-api/index.json");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            proxyModeText.textContent = "Vercel Edge 直连 (JSON)";
+            return data.map(item => {
+              const title = item.title || "无标题";
+              const link = item.permalink ? new URL(item.permalink, "https://bore.vip").href : "https://bore.vip/";
+              const date = (item.date || "").slice(0, 10);
+              const desc = stripHtml(item.content || item.summary || "");
+              const { category, catLabel } = detectCategory(title, desc);
+              return { title, link, date, desc, category, catLabel };
+            });
+          }
+        }
+      } catch (e) {}
+
+      // 2. 尝试 Vercel 同源代理拉取 RSS (index.xml)
+      try {
+        const res = await fetch("/bore-api/index.xml");
+        if (res.ok) {
+          const xmlText = await res.text();
+          const parsed = parseRssXml(xmlText);
+          proxyModeText.textContent = "Vercel Edge 直连 (RSS)";
+          return parsed;
+        }
+      } catch (e) {}
+
+      // 3. 本地双击预览时的回退方案：使用 rss2json / AllOrigins
+      try {
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent("https://bore.vip/index.xml")}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'ok' && data.items?.length) {
+            proxyModeText.textContent = "CORS 公共代理 (本地模式)";
+            return data.items.map(item => {
+              const date = (item.pubDate || "").split(" ")[0];
+              const desc = stripHtml(item.description || item.content);
+              const { category, catLabel } = detectCategory(item.title, desc);
+              return { title: item.title, link: item.link, date, desc, category, catLabel };
+            });
+          }
+        }
+      } catch (e) {}
+
+      const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent("https://bore.vip/index.xml")}`);
+      const xmlText = await res.text();
+      proxyModeText.textContent = "AllOrigins 代理 (本地模式)";
+      return parseRssXml(xmlText);
+    }
+
+    // 同步原站首页 DOM：提取最新说说、历年归档数、标签云
+    async function syncHomepageDom() {
+      let htmlText = "";
+      try {
+        // 优先走 Vercel /bore-api/home
+        const res = await fetch("/bore-api/home");
+        if (res.ok) htmlText = await res.text();
+      } catch (e) {}
+
+      if (!htmlText) {
+        try {
+          const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent("https://bore.vip/")}`);
+          if (res.ok) htmlText = await res.text();
+        } catch (e) {}
+      }
+
+      if (!htmlText) return;
+      const doc = new DOMParser().parseFromString(htmlText, "text/html");
+
+      // A. 提取说说列表
+      const shuoLinks = Array.from(doc.querySelectorAll('main a[href="/shuoshuo/"]'));
+      const extractedShuo = shuoLinks
+        .map(a => a.textContent.replace(/\s+/g, " ").trim())
+        .filter(t => t.length > 6);
+      if (extractedShuo.length > 0) {
+        shuoshuoData = extractedShuo;
+        shuoIndex = 0;
+        renderShuo();
+        localStorage.setItem("bore_shuoshuo_cache", JSON.stringify(extractedShuo));
+      }
+
+      // B. 提取历年归档篇数
+      const archiveLinks = Array.from(doc.querySelectorAll('aside a[href^="/archives/#"]'));
+      if (archiveLinks.length > 0) {
+        const archiveGrid = document.getElementById('archiveGrid');
+        archiveGrid.innerHTML = archiveLinks.map(a => {
+          const href = new URL(a.getAttribute('href'), 'https://bore.vip').href;
+          const spans = a.querySelectorAll('span');
+          const year = spans[0]?.textContent.trim() || '归档';
+          const count = spans[1]?.textContent.trim() || '查看';
+          return `<a class="archive-box" href="${href}" target="_blank"><span>${year}</span><span class="archive-count">${count}</span></a>`;
+        }).join('');
+      }
+
+      // C. 提取标签云
+      const tagLinks = Array.from(doc.querySelectorAll('aside a[href^="/tags/"]'));
+      if (tagLinks.length > 0) {
+        const tagCloud = document.getElementById('tagCloud');
+        tagCloud.innerHTML = tagLinks.map(a => {
+          const href = new URL(a.getAttribute('href'), 'https://bore.vip').href;
+          const name = a.textContent.trim();
+          return `<a class="tag" href="${href}" target="_blank"># ${name}</a>`;
+        }).join('');
+      }
+    }
+
+    // 同步 GitHub 仓库最后一次 Commit 状态
+    async function syncGitHubCommit() {
+      try {
+        const res = await fetch("https://api.github.com/repos/iwyang/iwyang.github.io/commits?per_page=1");
+        if (!res.ok) return;
+        const commits = await res.json();
+        if (Array.isArray(commits) && commits.length > 0) {
+          const sha = commits[0].sha.slice(0, 7);
+          const htmlUrl = commits[0].html_url;
+          const dateStr = new Date(commits[0].commit.committer.date).toLocaleDateString('zh-CN');
+          document.getElementById('lastDeployTime').textContent = dateStr;
+          const commitLink = document.getElementById('lastCommitLink');
+          commitLink.textContent = `#${sha}`;
+          commitLink.href = htmlUrl;
+        }
+      } catch (e) {}
+    }
+
+    // 执行全量同步
+    async function runFullSync() {
+      syncBtn.disabled = true;
+      syncBtn.textContent = "⏳ 正在同步...";
+      syncDot.classList.remove("live");
+      syncStatusText.textContent = "正在从 bore.vip 同步最新内容...";
+
+      // 先渲染本地缓存保证秒开
+      const cachedPosts = localStorage.getItem("bore_posts_cache");
+      const cachedShuo = localStorage.getItem("bore_shuoshuo_cache");
+      if (cachedPosts) {
+        try { currentPosts = JSON.parse(cachedPosts); renderPosts(); } catch (e) {}
+      }
+      if (cachedShuo) {
+        try { shuoshuoData = JSON.parse(cachedShuo); renderShuo(); } catch (e) {}
+      }
+
+      syncGitHubCommit();
+      syncHomepageDom();
+
+      try {
+        const freshPosts = await syncLatestArticles();
+        if (freshPosts && freshPosts.length > 0) {
+          currentPosts = freshPosts;
+          localStorage.setItem("bore_posts_cache", JSON.stringify(freshPosts));
+          renderPosts();
+
+          const nowStr = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+          syncDot.classList.add("live");
+          syncStatusText.textContent = `已实时同步 (${ currentPosts.length } 篇文章 · ${nowStr})`;
+        }
+      } catch (err) {
+        syncStatusText.textContent = "使用本地缓存快照";
+      } finally {
+        syncBtn.disabled = false;
+        syncBtn.textContent = "🔄 立即同步最新内容";
+      }
+    }
+
+    renderPosts();
+    renderShuo();
+    syncBtn.addEventListener('click', runFullSync);
+    runFullSync();
+  </script>
+</body>
+</html>
