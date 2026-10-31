@@ -50,6 +50,7 @@
       line-height: 1.6;
       transition: background-color 0.3s ease, color 0.3s ease;
       padding: 24px 16px;
+      overflow-x: hidden;
     }
 
     a {
@@ -61,14 +62,14 @@
       max-width: 1240px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: 265px 1fr 285px;
+      grid-template-columns: 260px minmax(0, 1fr) 280px;
       gap: 24px;
       align-items: start;
     }
 
     @media (max-width: 1024px) {
       .container {
-        grid-template-columns: 240px 1fr;
+        grid-template-columns: 240px minmax(0, 1fr);
       }
       .right-sidebar {
         grid-column: 1 / -1;
@@ -80,7 +81,7 @@
 
     @media (max-width: 768px) {
       .container {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
       }
     }
 
@@ -91,6 +92,7 @@
       padding: 22px;
       box-shadow: var(--shadow);
       transition: transform 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
+      min-width: 0;
     }
 
     /* 左侧边栏 */
@@ -100,6 +102,7 @@
       display: flex;
       flex-direction: column;
       gap: 20px;
+      min-width: 0;
     }
 
     .profile-header {
@@ -219,18 +222,23 @@
       display: flex;
       flex-direction: column;
       gap: 22px;
+      min-width: 0;
+      width: 100%;
     }
 
+    /* 说说动态栏：单行省略号展示 */
     .shuoshuo-bar {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 14px 20px;
+      padding: 12px 18px;
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-left: 4px solid var(--primary);
       border-radius: 14px;
       box-shadow: var(--shadow);
+      min-width: 0;
+      width: 100%;
     }
 
     .shuoshuo-badge {
@@ -241,20 +249,36 @@
       padding: 4px 10px;
       border-radius: 6px;
       white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .shuoshuo-text {
       flex: 1;
+      min-width: 0;
       font-size: 0.92rem;
       color: var(--text-main);
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
+      transition: color 0.2s;
+    }
+
+    .shuoshuo-text:hover {
+      color: var(--primary);
     }
 
     .shuoshuo-controls {
       display: flex;
+      align-items: center;
       gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .shuoshuo-counter {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin-right: 2px;
+      font-variant-numeric: tabular-nums;
     }
 
     .icon-btn {
@@ -268,12 +292,16 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 1rem;
+      line-height: 1;
+      user-select: none;
       transition: all 0.2s;
     }
 
     .icon-btn:hover {
       color: var(--primary);
       border-color: var(--primary);
+      background: var(--bg-accent);
     }
 
     .section-header {
@@ -414,6 +442,7 @@
       background: var(--tag-bg);
       border: 1px solid var(--border-color);
       transition: all 0.2s ease;
+      min-width: 0;
     }
 
     .post-card:hover {
@@ -443,6 +472,7 @@
       font-size: 1.05rem;
       font-weight: 700;
       margin-bottom: 6px;
+      word-break: break-word;
     }
 
     .post-desc {
@@ -452,6 +482,7 @@
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
+      word-break: break-word;
     }
 
     /* 右侧边栏 */
@@ -459,6 +490,7 @@
       display: flex;
       flex-direction: column;
       gap: 20px;
+      min-width: 0;
     }
 
     .info-list {
@@ -475,10 +507,12 @@
       align-items: center;
       border-bottom: 1px dashed var(--border-color);
       padding-bottom: 8px;
+      gap: 8px;
     }
 
     .info-list li span:first-child {
       color: var(--text-muted);
+      white-space: nowrap;
     }
 
     .archive-grid {
@@ -581,13 +615,14 @@
 
     <!-- 中间栏 -->
     <main class="main-content">
-      <!-- 顶部“说说”微动态轮播 -->
-      <div class="shuoshuo-bar">
+      <!-- 顶部“说说”单行省略号动态栏 -->
+      <div class="shuoshuo-bar" id="shuoshuoBar">
         <span class="shuoshuo-badge">💬 最新说说</span>
-        <a href="https://bore.vip/shuoshuo/" target="_blank" id="shuoshuoContent" class="shuoshuo-text">
+        <a href="https://bore.vip/shuoshuo/" target="_blank" id="shuoshuoContent" class="shuoshuo-text" title="点击查看全部说说">
           正在同步 bore.vip 最新说说...
         </a>
         <div class="shuoshuo-controls">
+          <span class="shuoshuo-counter" id="shuoCounter">1/1</span>
           <button class="icon-btn" id="prevShuo" title="上一条">‹</button>
           <button class="icon-btn" id="nextShuo" title="下一条">›</button>
         </div>
@@ -688,9 +723,6 @@
   </footer>
 
   <script>
-    // ==========================================
-    // 0. 离线/初始兜底数据
-    // ==========================================
     const FALLBACK_POSTS = [
       {
         title: "Certbot SSL 证书续期失败排查与修复终极指南 (Hugo + Nginx 进阶版)",
@@ -747,9 +779,6 @@
     let shuoIndex = 0;
     let currentFilter = 'all';
 
-    // ==========================================
-    // 1. 浅色 / 深色主题切换（默认浅色）
-    // ==========================================
     const themeToggle = document.getElementById('themeToggle');
     const htmlEl = document.documentElement;
     themeToggle.addEventListener('click', () => {
@@ -759,9 +788,6 @@
       themeToggle.textContent = next === 'light' ? '🌙 切换深色模式' : '☀️ 切换浅色模式';
     });
 
-    // ==========================================
-    // 2. 智能分类与文本清洗
-    // ==========================================
     function detectCategory(title, desc) {
       const text = (title + " " + desc).toLowerCase();
       if (text.includes("koreader") || text.includes("阅读") || text.includes("读书笔记")) {
@@ -780,9 +806,6 @@
       return clean.length > 120 ? clean.slice(0, 120) + "..." : (clean || "点击前往 bore.vip 阅读完整文章内容...");
     }
 
-    // ==========================================
-    // 3. 渲染文章列表与实时搜索
-    // ==========================================
     const postListEl = document.getElementById('postList');
     const searchInput = document.getElementById('searchInput');
 
@@ -799,7 +822,6 @@
         return;
       }
 
-      // 默认展示前 15 篇，搜索时展示全部匹配结果
       const listToShow = keyword ? filtered : filtered.slice(0, 15);
       postListEl.innerHTML = listToShow.map(post => `
         <a class="post-card" href="${post.link}" target="_blank" rel="noopener">
@@ -824,31 +846,49 @@
 
     searchInput.addEventListener('input', renderPosts);
 
-    // ==========================================
-    // 4. 说说轮播控制
-    // ==========================================
     const shuoEl = document.getElementById('shuoshuoContent');
+    const shuoCounterEl = document.getElementById('shuoCounter');
+    const shuoshuoBar = document.getElementById('shuoshuoBar');
+    let shuoTimer = null;
+
     function renderShuo() {
-      if (shuoshuoData.length > 0) {
-        shuoEl.textContent = shuoshuoData[shuoIndex % shuoshuoData.length];
+      const total = shuoshuoData.length;
+      if (total > 0) {
+        const idx = shuoIndex % total;
+        const text = shuoshuoData[idx];
+        shuoEl.textContent = text;
+        shuoEl.title = text;
+        shuoCounterEl.textContent = `${idx + 1}/${total}`;
       }
     }
+
+    function startShuoTimer() {
+      stopShuoTimer();
+      shuoTimer = setInterval(() => {
+        shuoIndex = (shuoIndex + 1) % shuoshuoData.length;
+        renderShuo();
+      }, 5000);
+    }
+
+    function stopShuoTimer() {
+      if (shuoTimer) clearInterval(shuoTimer);
+    }
+
     document.getElementById('prevShuo').addEventListener('click', () => {
       shuoIndex = (shuoIndex - 1 + shuoshuoData.length) % shuoshuoData.length;
       renderShuo();
+      startShuoTimer();
     });
+
     document.getElementById('nextShuo').addEventListener('click', () => {
       shuoIndex = (shuoIndex + 1) % shuoshuoData.length;
       renderShuo();
+      startShuoTimer();
     });
-    setInterval(() => {
-      shuoIndex = (shuoIndex + 1) % shuoshuoData.length;
-      renderShuo();
-    }, 5000);
 
-    // ==========================================
-    // 5. Vercel 同源代理优先 + 公共代理容灾引擎
-    // ==========================================
+    shuoshuoBar.addEventListener('mouseenter', stopShuoTimer);
+    shuoshuoBar.addEventListener('mouseleave', startShuoTimer);
+
     const syncDot = document.getElementById('syncDot');
     const syncStatusText = document.getElementById('syncStatusText');
     const syncBtn = document.getElementById('syncBtn');
@@ -871,9 +911,7 @@
       });
     }
 
-    // 同步文章：优先 Vercel /bore-api/index.json 与 /bore-api/index.xml
     async function syncLatestArticles() {
-      // 1. 优先尝试 Vercel 同源代理拉取全站 JSON 索引 (包含所有历史文章)
       try {
         const res = await fetch("/bore-api/index.json");
         if (res.ok) {
@@ -892,7 +930,6 @@
         }
       } catch (e) {}
 
-      // 2. 尝试 Vercel 同源代理拉取 RSS (index.xml)
       try {
         const res = await fetch("/bore-api/index.xml");
         if (res.ok) {
@@ -903,7 +940,6 @@
         }
       } catch (e) {}
 
-      // 3. 本地双击预览时的回退方案：使用 rss2json / AllOrigins
       try {
         const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent("https://bore.vip/index.xml")}`);
         if (res.ok) {
@@ -926,11 +962,9 @@
       return parseRssXml(xmlText);
     }
 
-    // 同步原站首页 DOM：提取最新说说、历年归档数、标签云
     async function syncHomepageDom() {
       let htmlText = "";
       try {
-        // 优先走 Vercel /bore-api/home
         const res = await fetch("/bore-api/home");
         if (res.ok) htmlText = await res.text();
       } catch (e) {}
@@ -945,7 +979,6 @@
       if (!htmlText) return;
       const doc = new DOMParser().parseFromString(htmlText, "text/html");
 
-      // A. 提取说说列表
       const shuoLinks = Array.from(doc.querySelectorAll('main a[href="/shuoshuo/"]'));
       const extractedShuo = shuoLinks
         .map(a => a.textContent.replace(/\s+/g, " ").trim())
@@ -957,7 +990,6 @@
         localStorage.setItem("bore_shuoshuo_cache", JSON.stringify(extractedShuo));
       }
 
-      // B. 提取历年归档篇数
       const archiveLinks = Array.from(doc.querySelectorAll('aside a[href^="/archives/#"]'));
       if (archiveLinks.length > 0) {
         const archiveGrid = document.getElementById('archiveGrid');
@@ -970,7 +1002,6 @@
         }).join('');
       }
 
-      // C. 提取标签云
       const tagLinks = Array.from(doc.querySelectorAll('aside a[href^="/tags/"]'));
       if (tagLinks.length > 0) {
         const tagCloud = document.getElementById('tagCloud');
@@ -982,7 +1013,6 @@
       }
     }
 
-    // 同步 GitHub 仓库最后一次 Commit 状态
     async function syncGitHubCommit() {
       try {
         const res = await fetch("https://api.github.com/repos/iwyang/iwyang.github.io/commits?per_page=1");
@@ -1000,14 +1030,12 @@
       } catch (e) {}
     }
 
-    // 执行全量同步
     async function runFullSync() {
       syncBtn.disabled = true;
       syncBtn.textContent = "⏳ 正在同步...";
       syncDot.classList.remove("live");
       syncStatusText.textContent = "正在从 bore.vip 同步最新内容...";
 
-      // 先渲染本地缓存保证秒开
       const cachedPosts = localStorage.getItem("bore_posts_cache");
       const cachedShuo = localStorage.getItem("bore_shuoshuo_cache");
       if (cachedPosts) {
@@ -1041,6 +1069,7 @@
 
     renderPosts();
     renderShuo();
+    startShuoTimer();
     syncBtn.addEventListener('click', runFullSync);
     runFullSync();
   </script>
