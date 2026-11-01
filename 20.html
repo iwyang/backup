@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>20以内加减法全覆盖闯关小游戏</title>
+  <title>20以内加减法全覆盖闯关小游戏（含PK模式）</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
   <style>
@@ -115,6 +115,207 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #94a3b8;
     }
+
+    /* ============ PK 多人对战 ============ */
+    .pk-hide { display: none !important; }
+    #pkView {
+      position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column;
+      height: 100vh; height: 100dvh; background: #e6f2dc; overflow: hidden;
+      font-family: 'Nunito', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    }
+    .pk-top {
+      flex: none; display: flex; align-items: center; gap: .5rem; padding: .4rem .6rem;
+      background: rgba(255,255,255,.95); border-bottom: 2px solid #d1e7c4;
+    }
+    .pk-top h2 { font-weight: 900; font-size: 1rem; color: #1e293b; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pk-chip { font-weight: 800; font-size: .8rem; padding: .3rem .65rem; border-radius: .75rem; background: #f1f5f9; border: 1px solid #e2e8f0; color: #334155; white-space: nowrap; cursor: pointer; }
+    .pk-chip.timer { background: #e0f2fe; border-color: #bae6fd; color: #0369a1; font-variant-numeric: tabular-nums; cursor: default; }
+
+    /* track */
+    #pkTrack { flex: none; height: 34%; min-height: 130px; max-height: 300px; display: flex; flex-direction: column; position: relative; }
+    .pk-sky {
+      flex: none; height: 20%; position: relative; text-align: center;
+      background:
+        radial-gradient(ellipse 40% 90% at 18% 100%, #7db58a 0 60%, transparent 61%),
+        radial-gradient(ellipse 50% 120% at 62% 100%, #6aa57c 0 60%, transparent 61%),
+        radial-gradient(ellipse 35% 80% at 92% 100%, #86bf92 0 60%, transparent 61%),
+        linear-gradient(#a9dcf5, #e3f4fc);
+    }
+    .pk-sky span { position: absolute; left: 50%; top: 8%; transform: translateX(-50%); font-weight: 900; font-size: clamp(.7rem, 1.8vw, 1rem); background: rgba(255,255,255,.85); padding: 0 .8rem; border-radius: 999px; color: #475569; white-space: nowrap; }
+    .pk-lanes { flex: 1; display: flex; flex-direction: column; position: relative; min-height: 0; }
+    .pk-lane { flex: 1; min-height: 0; display: flex; align-items: center; position: relative; border-bottom: 2px dashed rgba(255,255,255,.55); }
+    .pk-lane:nth-child(odd)  { background: #78b858; }
+    .pk-lane:nth-child(even) { background: #6aab4a; }
+    .pk-lane-no { flex: none; width: 3.2rem; text-align: center; font-weight: 900; font-size: .72rem; color: #fff; padding: .1rem 0; margin-left: .35rem; border-radius: .6rem; white-space: nowrap; }
+    .pk-run { position: relative; flex: 1; height: 100%; margin: 0 1.6rem 0 .4rem; }
+    .pk-runner { position: absolute; top: 50%; left: 0; height: 0; display: flex; align-items: center; gap: .15rem; transition: left .5s cubic-bezier(.2,.8,.3,1); }
+    .pk-flip { display: inline-block; transform: scaleX(-1); }
+    .pk-ani { display: inline-block; font-size: var(--ani, 2rem); line-height: 1; transform: translateY(-50%); animation: pkBob .5s ease-in-out infinite; }
+    .pk-racing-off .pk-ani { animation: none; }
+    .pk-hop .pk-ani { animation: pkHop .45s ease-out; }
+    @keyframes pkBob { 0%,100% { transform: translateY(-50%) rotate(-4deg); } 50% { transform: translateY(-58%) rotate(4deg); } }
+    @keyframes pkHop { 0% { transform: translateY(-50%); } 40% { transform: translateY(-120%) scale(1.25); } 100% { transform: translateY(-50%); } }
+    .pk-badge { transform: translateY(-50%); font-size: .68rem; font-weight: 900; background: rgba(255,255,255,.92); border-radius: .5rem; padding: 0 .35rem; color: #334155; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pk-finishline { position: absolute; top: 0; bottom: 0; right: .5rem; width: 14px; z-index: 2; background: repeating-conic-gradient(#111 0 25%, #fff 0 50%) 0 0 / 14px 14px; opacity: .9; border-radius: 2px; }
+
+    /* panels */
+    #pkPanels { flex: 1; min-height: 0; display: grid; gap: .5rem; padding: .5rem; }
+    #pkPanels.p2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    #pkPanels.p3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    #pkPanels.p4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+    .pk-panel { --c: #10b981; display: flex; flex-direction: column; gap: .35rem; min-height: 0; min-width: 0; background: #fff; border-radius: 1.1rem; border: 3px solid var(--c); padding: .4rem; box-shadow: 0 3px 0 rgba(0,0,0,.08); position: relative; touch-action: manipulation; }
+    .pk-ptag { flex: none; display: flex; align-items: center; justify-content: space-between; gap: .3rem; background: var(--c); color: #fff; font-weight: 900; font-size: clamp(.7rem, 1.5vw, .95rem); border-radius: .7rem; padding: .15rem .5rem; white-space: nowrap; overflow: hidden; }
+    .pk-prog { flex: none; height: 6px; border-radius: 99px; background: #e2e8f0; overflow: hidden; }
+    .pk-prog > i { display: block; height: 100%; width: 0; background: var(--c); transition: width .3s; }
+    .pk-eq { flex: none; display: flex; align-items: center; justify-content: center; gap: .3em; font-weight: 900; font-variant-numeric: tabular-nums; color: #1e293b; font-size: clamp(1.25rem, 3.4vw + .4rem, 2.8rem); padding: .1rem 0; white-space: nowrap; }
+    .pk-eq .op { color: var(--c); }
+    .pk-eq .eqs { color: #94a3b8; }
+    .pk-ans { min-width: 2.1em; text-align: center; border: 3px solid var(--c); border-radius: .5em; background: #fff; padding: 0 .2em; color: var(--c); transition: background .15s; }
+    .pk-ans.ok { background: #d1fae5; }
+    .pk-ans.bad { background: #ffe4e6; border-color: #f43f5e; color: #e11d48; animation: shake .4s ease-in-out; }
+    .pk-pad { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); grid-auto-rows: minmax(0,1fr); gap: .3rem; }
+    .pk-key { border: 0; border-radius: .7rem; background: #f1f5f9; box-shadow: 0 3px 0 #cbd5e1; font-weight: 900; font-size: clamp(1rem, 2.2vw, 1.6rem); color: #1e293b; min-height: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+    .pk-key:active { transform: translateY(2px); box-shadow: 0 1px 0 #cbd5e1; background: #e2e8f0; }
+    .pk-key.del { background: #ffe4e6; color: #be123c; box-shadow: 0 3px 0 #fda4af; font-size: clamp(.8rem, 1.6vw, 1.2rem); }
+    .pk-key.go { background: var(--c); color: #fff; box-shadow: 0 3px 0 rgba(0,0,0,.25); }
+    .pk-panel.locked .pk-pad { opacity: .55; pointer-events: none; }
+    .pk-float { white-space: nowrap; position: absolute; left: 50%; top: 30%; transform: translateX(-50%); font-weight: 900; font-size: 1.6rem; color: var(--c); pointer-events: none; animation: pkFloat .8s ease-out forwards; }
+    @keyframes pkFloat { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -40px); } }
+
+    /* overlays */
+    .pk-overlay { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(15,23,42,.55); backdrop-filter: blur(3px); overflow: auto; }
+    .pk-card { margin: auto; background: #fff; border-radius: 1.5rem; width: 100%; max-width: 30rem; padding: 1.2rem; box-shadow: 0 20px 50px rgba(0,0,0,.3); border: 4px solid #fcd34d; max-height: 100%; overflow: auto; }
+    .pk-card h3 { font-weight: 900; font-size: 1.35rem; text-align: center; color: #1e293b; }
+    .pk-label { font-weight: 800; font-size: .8rem; color: #64748b; margin: .9rem 0 .35rem; }
+    .pk-segs { display: grid; gap: .5rem; grid-template-columns: repeat(var(--n, 2), minmax(0,1fr)); }
+    .pk-seg { border: 2px solid #e2e8f0; border-radius: 1rem; padding: .6rem .3rem; font-weight: 900; background: #fff; color: #475569; cursor: pointer; font-size: .95rem; }
+    .pk-seg small { display: block; font-weight: 700; font-size: .68rem; color: #94a3b8; }
+    .pk-seg.on { border-color: #10b981; background: #ecfdf5; color: #047857; }
+    .pk-select { width: 100%; border: 2px solid #e2e8f0; border-radius: 1rem; padding: .6rem .7rem; font-weight: 800; background: #fff; color: #334155; font-size: .9rem; }
+    .pk-btn { display: block; width: 100%; border: 0; border-radius: 1rem; padding: .8rem; font-weight: 900; font-size: 1.05rem; color: #fff; background: linear-gradient(135deg, #f43f5e, #f97316); box-shadow: 0 4px 0 #be123c; cursor: pointer; margin-top: 1rem; }
+    .pk-btn.alt { background: #10b981; box-shadow: 0 4px 0 #059669; margin-top: .5rem; }
+    .pk-btn.ghost { background: #f1f5f9; color: #475569; box-shadow: 0 4px 0 #cbd5e1; margin-top: .5rem; font-size: .9rem; }
+    #pkCountdown { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,.35); pointer-events: all; }
+    #pkCountdown b { font-size: min(34vw, 40vh); font-weight: 900; color: #fff; text-shadow: 0 6px 0 rgba(0,0,0,.25), 0 0 40px rgba(0,0,0,.35); animation: pkCount .8s ease-out; }
+    @keyframes pkCount { from { transform: scale(2); opacity: 0; } 30% { opacity: 1; } to { transform: scale(1); opacity: 1; } }
+    .pk-rank { display: flex; align-items: center; gap: .6rem; padding: .5rem .7rem; border-radius: 1rem; border: 2px solid #e2e8f0; margin-top: .4rem; font-weight: 800; color: #334155; }
+    .pk-rank.first { background: #fffbeb; border-color: #fbbf24; }
+    .pk-rank .medal { font-size: 1.6rem; width: 2rem; text-align: center; }
+    .pk-rank .meta { flex: 1; min-width: 0; font-size: .75rem; color: #64748b; }
+    .pk-rank .name { font-weight: 900; font-size: 1rem; color: #1e293b; }
+    .pk-rank .score { font-weight: 900; font-variant-numeric: tabular-nums; }
+
+    /* 手机横屏 / 矮屏：压缩顶栏与赛道，给答题区留空间 */
+    @media (max-height: 520px) {
+      .pk-top { padding: .2rem .5rem; gap: .35rem; }
+      .pk-top h2 { display: none; }
+      .pk-top { justify-content: space-between; }
+      .pk-chip { font-size: .72rem; padding: .2rem .55rem; }
+      #pkTrack { height: 33%; min-height: 96px; max-height: 150px; }
+      .pk-sky { height: 11%; min-height: 8px; }
+      .pk-sky span { display: none; }
+      .pk-lane-no { width: 2.7rem; font-size: .6rem; margin-left: .25rem; }
+      .pk-badge { font-size: .6rem; }
+      #pkPanels { padding: .3rem; gap: .35rem; }
+      .pk-panel { padding: .25rem; gap: .2rem; border-width: 2px; border-radius: .8rem; }
+      .pk-ptag { font-size: .66rem; padding: .05rem .4rem; }
+      .pk-prog { height: 4px; }
+      .pk-eq { font-size: min(1.5rem, 6.5vh); padding: 0; }
+      .pk-ans { border-width: 2px; min-width: 1.7em; }
+      .pk-pad { gap: .2rem; }
+      .pk-key { font-size: min(1.2rem, 5.2vh); border-radius: .5rem; box-shadow: 0 2px 0 #cbd5e1; }
+      .pk-key.del { font-size: min(.9rem, 4.2vh); box-shadow: 0 2px 0 #fda4af; }
+      .pk-key.go { box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+      .pk-float { font-size: 1.1rem; top: 18%; }
+      .pk-overlay { padding: .5rem; }
+      .pk-card { padding: .8rem 1rem; }
+      .pk-card h3 { font-size: 1.1rem; }
+      .pk-label { margin: .5rem 0 .25rem; }
+      .pk-seg { padding: .35rem .2rem; }
+      .pk-btn { padding: .55rem; margin-top: .6rem; font-size: .95rem; }
+    }
+
+    .pk-done { position: absolute; inset: 0; z-index: 3; border-radius: .8rem; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem; text-align: center; font-weight: 900; color: var(--c); padding: .3rem; }
+    .pk-done .big { font-size: clamp(1.1rem, 2.6vw, 1.9rem); }
+    .pk-done .sub { font-size: clamp(.7rem, 1.5vw, 1rem); color: #475569; font-weight: 800; }
+    .pk-done .wait { font-size: .7rem; color: #94a3b8; font-weight: 700; }
+
+    .pk-review-card { max-width: 36rem; }
+    #pkReviewList { margin-top: .6rem; }
+    .pk-q { width: 100%; text-align: left; background: #fff; border: 2px solid #e2e8f0; border-radius: .9rem; padding: .45rem .7rem; margin-top: .4rem; cursor: pointer; display: block; }
+    .pk-q.open { border-color: #fbbf24; background: #fffbeb; }
+    .pk-q-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .pk-q-eq { font-weight: 900; font-size: 1.15rem; color: #1e293b; font-variant-numeric: tabular-nums; min-width: 8.5rem; }
+    .pk-q-eq b { color: #059669; }
+    .pk-q-no { font-size: .7rem; font-weight: 800; color: #94a3b8; width: 1.6rem; }
+    .pk-q-tags { display: flex; gap: .3rem; flex-wrap: wrap; flex: 1; font-size: .72rem; font-weight: 800; }
+    .pk-tag { padding: 0 .4rem; border-radius: .5rem; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; white-space: nowrap; }
+    .pk-tag.ok { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+    .pk-q-detail { margin-top: .4rem; }
+    .pk-q-detail .steps { font-size: .78rem; font-weight: 800; color: #334155; background: #f8fafc; border-radius: .6rem; padding: .4rem .6rem; margin-top: .3rem; }
+    .pk-q-detail .ttl { font-size: .78rem; font-weight: 900; color: #92400e; }
+
+    /* 超矮屏（手机横屏 + 浏览器地址栏，可用高度常常只有 250~330px）
+       数字键改为 2 行 × 6 列，赛道压成细条 */
+    @media (max-height: 430px) {
+      .pk-top { padding: .1rem .4rem; min-height: 0; }
+      .pk-chip { font-size: .66rem; padding: .12rem .5rem; }
+      #pkTrack { height: auto; min-height: 0; max-height: none; flex: none; }
+      .pk-sky { height: 6px; min-height: 0; }
+      .pk-lane { flex: none; height: var(--lane-h, 24px); }
+      .pk-lane-no { font-size: .58rem; width: 2.5rem; padding: 0; }
+      .pk-badge { font-size: .55rem; padding: 0 .25rem; }
+      #pkPanels { padding: .25rem; gap: .3rem; }
+      .pk-panel { padding: .2rem; gap: .15rem; border-width: 2px; border-radius: .7rem; }
+      .pk-ptag { font-size: .62rem; padding: 0 .35rem; line-height: 1.35; }
+      .pk-prog { height: 3px; }
+      .pk-eq { font-size: min(1.35rem, 8.5vh); line-height: 1.1; }
+      .pk-ans { border-width: 2px; min-width: 1.6em; }
+      .pk-pad { grid-template-columns: repeat(6, minmax(0,1fr)); grid-template-rows: repeat(2, minmax(0,1fr)); grid-auto-rows: auto; gap: .18rem; }
+      .pk-key { font-size: min(1.15rem, 7vh); border-radius: .45rem; box-shadow: 0 2px 0 #cbd5e1; }
+      .pk-key.del { font-size: min(.85rem, 5vh); box-shadow: 0 2px 0 #fda4af; }
+      .pk-key.go  { box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+      .pk-key[data-k="1"] { order: 1; } .pk-key[data-k="2"] { order: 2; } .pk-key[data-k="3"] { order: 3; }
+      .pk-key[data-k="4"] { order: 4; } .pk-key[data-k="5"] { order: 5; } .pk-key[data-k="del"] { order: 6; }
+      .pk-key[data-k="6"] { order: 7; } .pk-key[data-k="7"] { order: 8; } .pk-key[data-k="8"] { order: 9; }
+      .pk-key[data-k="9"] { order: 10; } .pk-key[data-k="0"] { order: 11; } .pk-key[data-k="go"] { order: 12; }
+      .pk-float { font-size: .95rem; top: 12%; }
+      /* 设置页：横向三栏，一屏放下 */
+      .pk-overlay { padding: .3rem; }
+      .pk-card { max-width: 46rem; padding: .5rem .8rem .6rem; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); column-gap: .6rem; align-items: start; border-width: 3px; border-radius: 1rem; }
+      .pk-card > h3 { grid-column: 1 / -1; font-size: 1rem; }
+      .pk-card > .pk-grp-wide { grid-column: 1 / -1; }
+      .pk-review-card { display: block; max-width: 40rem; }
+      .pk-grp-wide .pk-seg small { display: none; }
+      .pk-grp-wide .pk-seg { padding: .2rem; }
+      .pk-card > p:not(.pk-tip) { display: none; }
+      .pk-card > .pk-tip { display: block !important; }
+      .pk-card > label, .pk-card > .pk-btn, .pk-card > .pk-tip { grid-column: 1 / -1; }
+      .pk-card > #pkFlipRow { margin-top: .3rem !important; font-size: .68rem !important; }
+      .pk-card > .pk-btn { margin-top: .35rem; padding: .4rem; font-size: .9rem; }
+      .pk-label { margin: .25rem 0 .15rem; font-size: .68rem; }
+      .pk-seg { padding: .25rem .1rem; font-size: .8rem; border-radius: .7rem; }
+      .pk-seg small { font-size: .58rem; }
+      .pk-select { padding: .35rem .4rem; font-size: .75rem; border-radius: .7rem; }
+      .pk-rank { padding: .25rem .5rem; margin-top: .2rem; }
+      #pkResult .pk-card { display: block; max-width: 28rem; }
+      #pkResult .pk-card > div:first-child { font-size: 1.6rem !important; }
+      #pkResult .pk-btn { display: inline-block; width: calc(50% - .25rem); margin: .35rem .1rem 0; font-size: .75rem; padding: .35rem 0; }
+    }
+
+    /* 竖屏 / 手机 */
+    @media (max-width: 760px) and (orientation: portrait) {
+      #pkTrack { height: 26%; }
+      #pkPanels.p4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      #pkPanels.p3 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      #pkPanels.p3 .pk-panel:nth-child(3) { grid-column: 1 / -1; }
+      #pkPanels.p2 { grid-template-columns: minmax(0,1fr); }
+      #pkPanels.p2.flip .pk-panel[data-p="0"] { transform: rotate(180deg); }
+      .pk-lane-no { width: 2.6rem; font-size: .62rem; }
+      .pk-eq { font-size: clamp(1rem, 5.2vw, 1.5rem); gap: .2em; }
+      .pk-ans { min-width: 1.6em; border-width: 2px; }
+      .pk-ptag { font-size: .68rem; padding: .1rem .35rem; }
+    }
   </style>
 </head>
 <body class="min-h-screen text-slate-800 pb-10">
@@ -167,6 +368,11 @@
           <button id="btnResetRound" title="重新洗牌开始本模式" class="shrink-0 w-[38px] sm:w-auto h-[38px] sm:px-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 border border-slate-200/80 font-bold text-xs sm:text-sm flex items-center justify-center gap-1 transition">
             <svg class="w-4 h-4 text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
             <span class="hidden sm:inline">重来</span>
+          </button>
+
+          <!-- PK Mode Entry -->
+          <button id="btnPK" title="2人 / 4人 同屏PK" class="shrink-0 h-[38px] px-2.5 sm:px-3 rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-extrabold text-xs sm:text-sm flex items-center gap-1 shadow-sm active:scale-95 transition">
+            <span>⚔️</span><span>多人PK</span>
           </button>
 
           <!-- Sound Toggle Button (Immediately to the right of Refresh Button, never wraps) -->
@@ -462,6 +668,101 @@
         <button id="btnPlayAgainFull" class="flex-1 py-3 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-sm shadow-md flex items-center justify-center gap-1.5 transition">
           <span>🎲 重新洗牌再来一轮</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============ PK 多人对战视图 ============ -->
+  <div id="pkView" class="pk-hide">
+    <div class="pk-top">
+      <button id="pkBtnExit" class="pk-chip">← 退出</button>
+      <h2>⚔️ 口算PK大赛</h2>
+      <span id="pkTimer" class="pk-chip timer">00:00.0</span>
+      <button id="pkBtnSound" class="pk-chip" title="音效开关">🔊</button>
+      <button id="pkBtnRestart" class="pk-chip">⚙️ 设置</button>
+    </div>
+    <div id="pkTrack">
+      <div class="pk-sky"><span id="pkSkyText">🏃 口算田径大赛 · 全员答完，按用时排名</span></div>
+      <div class="pk-lanes" id="pkLanes"></div>
+    </div>
+    <div id="pkPanels" class="p2"></div>
+
+    <!-- 设置 -->
+    <div id="pkSetup" class="pk-overlay">
+      <div class="pk-card">
+        <h3>⚔️ 多人PK · 口算田径赛</h3>
+        <p style="text-align:center;font-size:.75rem;color:#64748b;font-weight:700;margin-top:.2rem">每人一块答题区，答对一题小动物就向前跑一步！</p>
+
+        <div class="pk-grp"><div class="pk-label">参赛人数</div>
+        <div class="pk-segs" data-group="n" style="--n:3">
+          <button class="pk-seg on" data-val="2">👬 2人PK<small>双人对战</small></button>
+          <button class="pk-seg" data-val="3">👨‍👩‍👦 3人PK<small>三人同屏</small></button>
+          <button class="pk-seg" data-val="4">🧑‍🤝‍🧑 4人PK<small>四人同屏</small></button>
+        </div></div>
+
+        <div class="pk-grp"><div class="pk-label">题库</div>
+        <select id="pkMode" class="pk-select">
+          <option value="core72">⭐ 核心进退位全集 (72道)</option>
+          <option value="add36">➕ 仅20以内进位加法 (36道)</option>
+          <option value="sub36">➖ 仅20以内退位减法 (36道)</option>
+          <option value="full180">🏆 11~20全算式覆盖 (180道)</option>
+        </select></div>
+
+        <div class="pk-grp"><div class="pk-label">赛程（先答对几题到终点）</div>
+        <div class="pk-segs" data-group="total" style="--n:3">
+          <button class="pk-seg on" data-val="10">10题<small>快赛</small></button>
+          <button class="pk-seg" data-val="20">20题<small>标准</small></button>
+          <button class="pk-seg" data-val="30">30题<small>长赛</small></button>
+        </div></div>
+
+        <div class="pk-grp pk-grp-wide"><div class="pk-label">赛制</div>
+        <div class="pk-segs" data-group="format" style="--n:2">
+          <button class="pk-seg on" data-val="all">📋 全员答完再排名<small>每人答完全部题，按完成用时排名</small></button>
+          <button class="pk-seg" data-val="first">🏁 抢先到终点<small>第一个冲线，比赛立即结束</small></button>
+        </div></div>
+
+        <label id="pkFlipRow" style="display:flex;align-items:center;gap:.5rem;margin-top:.9rem;font-weight:800;font-size:.8rem;color:#475569;cursor:pointer">
+          <input type="checkbox" id="pkFlip" style="width:18px;height:18px">
+          手机/平板竖放2人对坐时，上方玩家答题区倒置
+        </label>
+
+        <button id="pkBtnStart" class="pk-btn">🚩 开始比赛</button>
+        <button id="pkBtnBackSolo" class="pk-btn ghost">返回单人闯关</button>
+        <p class="pk-tip" style="display:none;grid-column:1/-1;font-size:.68rem;color:#b45309;font-weight:800;text-align:center">💡 屏幕太矮？开赛会自动全屏；也可以把手机竖过来玩（竖屏更宽松）。</p>
+        <p class="pk-note" style="font-size:.68rem;color:#94a3b8;font-weight:700;text-align:center;margin-top:.5rem">公平规则：所有人答同样的题目（顺序随机）；答错冻结 0.7 秒，题目不变。</p>
+      </div>
+    </div>
+
+    <!-- 倒计时 -->
+    <div id="pkCountdown" class="pk-hide"><b id="pkCountNum">3</b></div>
+
+    <!-- 结算 -->
+    <div id="pkResult" class="pk-overlay pk-hide">
+      <div class="pk-card">
+        <div style="text-align:center;font-size:2.6rem">🏆</div>
+        <h3 id="pkWinTitle">获胜！</h3>
+        <p id="pkWinSub" style="text-align:center;font-size:.8rem;color:#64748b;font-weight:700;margin-top:.2rem"></p>
+        <div id="pkRankList" style="margin-top:.5rem"></div>
+        <button id="pkBtnAgain" class="pk-btn">🔁 再来一局</button>
+        <button id="pkBtnReview" class="pk-btn alt" style="background:#6366f1;box-shadow:0 4px 0 #4338ca">📖 查看题目与答案（复盘讲解）</button>
+        <button id="pkBtnToSetup" class="pk-btn alt">⚙️ 修改设置</button>
+        <button id="pkBtnResultSolo" class="pk-btn ghost">↩ 返回单人闯关</button>
+        <button id="pkBtnLook" class="pk-btn ghost">看看赛场</button>
+      </div>
+    </div>
+
+    <!-- 复盘：题目与答案 -->
+    <div id="pkReview" class="pk-overlay pk-hide">
+      <div class="pk-card pk-review-card">
+        <h3>📖 题目与答案复盘</h3>
+        <p id="pkReviewSub" style="text-align:center;font-size:.75rem;color:#64748b;font-weight:700;margin-top:.2rem"></p>
+        <div class="pk-segs" id="pkReviewFilter" style="--n:2;margin-top:.6rem">
+          <button class="pk-seg on" data-f="all">全部题目</button>
+          <button class="pk-seg" data-f="wrong">只看答错过的</button>
+        </div>
+        <div id="pkReviewList"></div>
+        <button id="pkBtnReviewBack" class="pk-btn">← 返回成绩</button>
       </div>
     </div>
   </div>
@@ -1670,6 +1971,7 @@
       });
 
       window.addEventListener('keydown', (e) => {
+        if (typeof pk !== 'undefined' && pk.active) return; // PK模式自行处理键盘
         if (!dom.victoryModal.classList.contains('hidden')) {
           if (e.key === 'Escape') {
             e.preventDefault();
@@ -1753,8 +2055,466 @@
       }
     }
 
+
+    /********************************************************************
+     * 8. PK 多人对战模式 (2人 / 4人 同屏)
+     ********************************************************************/
+    const PK_ROSTER = [
+      { name: '小兔',   emoji: '🐰', color: '#ef4444' },
+      { name: '小熊',   emoji: '🐻', color: '#3b82f6' },
+      { name: '小狐狸', emoji: '🦊', color: '#10b981' },
+      { name: '小狼',   emoji: '🐺', color: '#f59e0b' }
+    ];
+    const pk = {
+      active: false, n: 2, mode: 'core72', total: 10, flip: false, pool: [], format: 'all', finished: 0,
+      phase: 'idle',            // idle | countdown | racing | done
+      players: [], t0: 0, tick: null, timeouts: []
+    };
+    const $pk = (id) => document.getElementById(id);
+
+    function pkLater(fn, ms) {
+      const id = setTimeout(fn, ms);
+      pk.timeouts.push(id);
+      return id;
+    }
+    function pkAbort() {
+      pk.timeouts.forEach(clearTimeout);
+      pk.timeouts = [];
+      if (pk.tick) { clearInterval(pk.tick); pk.tick = null; }
+      pk.phase = 'idle';
+    }
+    function pkFmt(ms) {
+      const t = Math.floor(ms / 100);
+      const m = String(Math.floor(t / 600)).padStart(2, '0');
+      const s = String(Math.floor((t % 600) / 10)).padStart(2, '0');
+      return `${m}:${s}.${t % 10}`;
+    }
+    function pkShow(id, on) { $pk(id).classList.toggle('pk-hide', !on); }
+
+    function openPK() {
+      pk.active = true;
+      stopTimer();                    // 暂停单人计时
+      pkShow('pkView', true);
+      document.body.style.overflow = 'hidden';
+      pkShowSetup();
+    }
+    function closePK() {
+      pkLeaveFullscreen();
+      pkAbort();
+      pk.active = false;
+      pkShow('pkView', false);
+      document.body.style.overflow = '';
+      if (state.currentEq && !state.timerInterval) startTimer();   // 恢复单人计时
+    }
+    function pkShowSetup() {
+      pkAbort();
+      pkShow('pkSetup', true);
+      pkShow('pkResult', false);
+      pkShow('pkReview', false);
+      pkShow('pkCountdown', false);
+      $pk('pkTimer').textContent = '00:00.0';
+      pkBuildBoard(true);
+      $pk('pkFlipRow').style.display = pk.n === 2 ? 'flex' : 'none';
+    }
+
+    /* ---------- 搭建赛道 + 答题面板 ---------- */
+    function pkBuildBoard(preview) {
+      const list = preview || !pk.players.length
+        ? PK_ROSTER.slice(0, pk.n).map((r, i) => ({ ...r, idx: i }))
+        : pk.players;
+
+      $pk('pkLanes').innerHTML = list.map((p, i) => `
+        <div class="pk-lane" id="pkLane${i}">
+          <span class="pk-lane-no" style="background:${p.color}">${i + 1}号 ${p.name}</span>
+          <div class="pk-run">
+            <div class="pk-runner" id="pkRunner${i}" style="left:0">
+              <span class="pk-flip"><span class="pk-ani">${p.emoji}</span></span>
+              <span class="pk-badge" id="pkBadge${i}">0/${pk.total}</span>
+            </div>
+          </div>
+          <div class="pk-finishline"></div>
+        </div>`).join('');
+
+      const keys = ['1','2','3','4','5','6','7','8','9','del','0','go'];
+      $pk('pkPanels').className = `p${pk.n}` + (pk.flip ? ' flip' : '');
+      $pk('pkPanels').innerHTML = list.map((p, i) => `
+        <div class="pk-panel" id="pkPanel${i}" data-p="${i}" style="--c:${p.color}">
+          <div class="pk-ptag"><span>${i + 1}号 ${p.emoji} ${p.name}</span><span id="pkCnt${i}">0/${pk.total}</span></div>
+          <div class="pk-prog"><i id="pkProg${i}"></i></div>
+          <div class="pk-eq">
+            <span id="pkA${i}">–</span><span class="op" id="pkOp${i}">+</span><span id="pkB${i}">–</span>
+            <span class="eqs">=</span><span class="pk-ans" id="pkAns${i}">?</span>
+          </div>
+          <div class="pk-pad">
+            ${keys.map(k => k === 'del'
+              ? `<button class="pk-key del" data-k="del">⌫</button>`
+              : k === 'go'
+                ? `<button class="pk-key go" data-k="go">✓</button>`
+                : `<button class="pk-key" data-k="${k}">${k}</button>`).join('')}
+          </div>
+        </div>`).join('');
+
+      $pk('pkTrack').classList.toggle('pk-racing-off', true);
+      $pk('pkTrack').style.setProperty('--lane-h', (pk.n === 2 ? 34 : pk.n === 3 ? 25 : 19) + 'px');
+      pkFitAnimals();
+    }
+    function pkFitAnimals() {
+      const lane = document.querySelector('#pkLanes .pk-lane');
+      if (!lane) return;
+      const px = Math.max(12, Math.min(42, lane.clientHeight * 0.68));
+      $pk('pkLanes').style.setProperty('--ani', px + 'px');
+    }
+
+    /* ---------- 开赛 ---------- */
+    function pkIsShort() { return window.innerHeight < 430; }
+    function pkTryFullscreen() {
+      try {
+        if (pkIsShort() && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+        }
+      } catch (e) {}
+    }
+    function pkLeaveFullscreen() {
+      try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
+    }
+    function pkStart() {
+      pkTryFullscreen();
+      pkAbort();
+      const pool = shuffleArray(generateQuestionBank(pk.mode)).slice(0, pk.total);
+      pk.total = pool.length;       // 题库不足时按实际题数
+      pk.pool = pool;
+      pk.finished = 0;
+      $pk('pkSkyText').textContent = pk.format === 'all' ? '🏃 口算田径大赛 · 全员答完，按用时排名' : '🏃 口算田径大赛 · 先到终点者胜';
+      pk.players = PK_ROSTER.slice(0, pk.n).map((r, i) => ({
+        ...r, idx: i,
+        queue: shuffleArray(pool),   // 题目相同，顺序各自随机
+        input: '', locked: false,
+        correct: 0, wrong: 0, combo: 0, maxCombo: 0, lastAt: null, wrongMap: {}
+      }));
+      pkBuildBoard(false);
+      pkShow('pkSetup', false);
+      pkShow('pkResult', false);
+      pkShow('pkReview', false);
+      pk.players.forEach(p => pkRenderQuestion(p, true));
+
+      pk.phase = 'countdown';
+      pkShow('pkCountdown', true);
+      const seq = ['3', '2', '1', 'GO!'];
+      seq.forEach((txt, i) => pkLater(() => {
+        const el = $pk('pkCountNum');
+        el.textContent = txt;
+        el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+        if (i < 3) sfx.playTone(440, 'sine', 0.16, 0, 0.2);
+        else { sfx.playTone(880, 'triangle', 0.35, 0, 0.22); }
+      }, i * 800));
+      pkLater(pkBeginRace, 3 * 800 + 650);
+    }
+
+    function pkBeginRace() {
+      pkShow('pkCountdown', false);
+      pk.phase = 'racing';
+      pk.t0 = performance.now();
+      $pk('pkTrack').classList.remove('pk-racing-off');
+      pk.tick = setInterval(() => {
+        $pk('pkTimer').textContent = pkFmt(performance.now() - pk.t0);
+      }, 100);
+    }
+
+    function pkRenderQuestion(p, hideAll) {
+      const i = p.idx;
+      const eq = p.queue[Math.min(p.correct, p.queue.length - 1)];
+      $pk('pkA' + i).textContent = eq.a;
+      $pk('pkOp' + i).textContent = eq.op;
+      $pk('pkB' + i).textContent = eq.b;
+      pkRenderInput(p);
+    }
+    function pkRenderInput(p) {
+      const el = $pk('pkAns' + p.idx);
+      el.textContent = p.input === '' ? '?' : p.input;
+      el.className = 'pk-ans';
+    }
+
+    /* ---------- 输入处理 ---------- */
+    function pkPress(i, key) {
+      if (pk.phase !== 'racing') return;
+      const p = pk.players[i];
+      if (!p || p.locked) return;
+      const eq = p.queue[p.correct];
+
+      if (key === 'del') {
+        if (p.input) { p.input = p.input.slice(0, -1); sfx.playTone(430, 'sine', 0.04, 0, 0.05); pkRenderInput(p); }
+        return;
+      }
+      if (key === 'go') {
+        if (p.input !== '') pkSubmit(p);
+        return;
+      }
+      if (p.input.length >= 2) p.input = '';
+      p.input += key;
+      sfx.playTone(480 + i * 60, 'sine', 0.05, 0, 0.05);
+      pkRenderInput(p);
+      if (p.input.length >= String(eq.answer).length) pkSubmit(p);
+    }
+
+    function pkSubmit(p) {
+      const i = p.idx;
+      const eq = p.queue[p.correct];
+      const val = parseInt(p.input, 10);
+      const ans = $pk('pkAns' + i);
+
+      if (val === eq.answer) {
+        p.correct++;
+        p.combo++;
+        p.maxCombo = Math.max(p.maxCombo, p.combo);
+        p.lastAt = performance.now() - pk.t0;
+        p.locked = true;
+        ans.className = 'pk-ans ok';
+        sfx.playCorrect(Math.min(p.combo, 6));
+        pkUpdateProgress(p, true);
+
+        const panel = $pk('pkPanel' + i);
+        const f = document.createElement('div');
+        f.className = 'pk-float'; f.textContent = p.combo >= 3 ? `🔥 ${p.combo}连击` : '+1';
+        panel.appendChild(f);
+        setTimeout(() => f.remove(), 850);
+
+        if (p.correct >= pk.total) {
+          if (pk.format === 'all') { pkPlayerDone(p); }
+          else { pkFinish(); }
+          return;
+        }
+        pkLater(() => {
+          p.input = ''; p.locked = false;
+          pkRenderQuestion(p);
+        }, 230);
+      } else {
+        p.wrong++;
+        p.wrongMap[eq.id] = (p.wrongMap[eq.id] || 0) + 1;
+        p.combo = 0;
+        p.locked = true;
+        ans.className = 'pk-ans bad';
+        $pk('pkPanel' + i).classList.add('locked');
+        sfx.playWrong();
+        pkLater(() => {
+          p.input = ''; p.locked = false;
+          $pk('pkPanel' + i).classList.remove('locked');
+          pkRenderInput(p);
+        }, 700);
+      }
+    }
+
+    function pkUpdateProgress(p, hop) {
+      const i = p.idx;
+      const frac = p.correct / pk.total;
+      $pk('pkRunner' + i).style.left = `calc(${frac} * (100% - 3.4rem))`;
+      $pk('pkBadge' + i).textContent = `${p.correct}/${pk.total}`;
+      $pk('pkCnt' + i).textContent = `${p.correct}/${pk.total}`;
+      $pk('pkProg' + i).style.width = `${frac * 100}%`;
+      if (hop) {
+        const lane = $pk('pkLane' + i);
+        lane.classList.remove('pk-hop'); void lane.offsetWidth; lane.classList.add('pk-hop');
+        setTimeout(() => lane.classList.remove('pk-hop'), 480);
+      }
+      // 领先者标记 👑
+      const max = Math.max(...pk.players.map(x => x.correct));
+      const leaders = pk.players.filter(x => x.correct === max);
+      pk.players.forEach(x => {
+        const tag = document.querySelector(`#pkLane${x.idx} .pk-lane-no`);
+        tag.textContent = `${leaders.length === 1 && max > 0 && x === leaders[0] ? '👑' : ''}${x.idx + 1}号 ${x.name}`;
+      });
+    }
+
+    /* ---------- 全员答完模式：个人完成 ---------- */
+    function pkPlayerDone(p) {
+      p.doneAt = p.lastAt;
+      p.place = ++pk.finished;
+      p.locked = true;
+      $pk('pkBadge' + p.idx).textContent = '🏁 ' + pkFmt(p.doneAt);
+      const left = pk.players.length - pk.finished;
+      const panel = $pk('pkPanel' + p.idx);
+      const d = document.createElement('div');
+      d.className = 'pk-done';
+      d.innerHTML = `<div class="big">🏁 已完成！</div>
+        <div class="sub">第 ${p.place} 个冲线 · 用时 ${pkFmt(p.doneAt)}</div>
+        <div class="sub">答错 ${p.wrong} 次</div>
+        <div class="wait">${left > 0 ? `等待其他 ${left} 位选手…` : ''}</div>`;
+      panel.appendChild(d);
+      sfx.playTone(784, 'triangle', 0.25, 0, 0.2);
+      sfx.playTone(1046, 'triangle', 0.35, 0.12, 0.2);
+      if (left === 0) pkFinish();
+    }
+
+    /* ---------- 结算 ---------- */
+    function pkRank() {
+      const key = pk.format === 'all'
+        ? (p => [0, p.doneAt != null ? p.doneAt : Infinity])
+        : (p => [-p.correct, p.correct > 0 ? p.lastAt : Infinity]);
+      const sorted = [...pk.players].sort((a, b) => {
+        const ka = key(a), kb = key(b);
+        return ka[0] - kb[0] || ka[1] - kb[1];
+      });
+      let rank = 0, prev = null;
+      sorted.forEach((p, idx) => {
+        const k = key(p).join('|');
+        if (k !== prev) rank = idx + 1;
+        p.rank = rank; prev = k;
+      });
+      return sorted;
+    }
+
+    function pkFinish() {
+      pk.phase = 'done';
+      if (pk.tick) { clearInterval(pk.tick); pk.tick = null; }
+      const sorted0 = pkRank();
+      const winner = sorted0[0];
+      const total = pk.format === 'all'
+        ? Math.max(...pk.players.map(x => x.doneAt || 0))
+        : winner.lastAt;
+      $pk('pkTimer').textContent = pkFmt(total);
+      $pk('pkTrack').classList.add('pk-racing-off');
+      pk.players.forEach(p => p.locked = true);
+
+      const sorted = sorted0;
+      const medals = ['🥇', '🥈', '🥉', '🎖️'];
+      $pk('pkWinTitle').innerHTML = pk.format === 'all'
+        ? `${winner.emoji} ${winner.idx + 1}号 ${winner.name} 夺得冠军！`
+        : `${winner.emoji} ${winner.idx + 1}号 ${winner.name} 获胜！`;
+      $pk('pkWinTitle').style.color = winner.color;
+      $pk('pkWinSub').textContent = pk.format === 'all'
+        ? `全员答完 ${pk.total} 题 · 按完成用时排名 · 冠军用时 ${pkFmt(winner.doneAt)}`
+        : `${pk.total} 题全部答对，用时 ${pkFmt(total)}`;
+      $pk('pkRankList').innerHTML = sorted.map(p => `
+        <div class="pk-rank ${p.rank === 1 ? 'first' : ''}">
+          <div class="medal">${medals[Math.min(p.rank - 1, 3)]}</div>
+          <div style="font-size:1.5rem">${p.emoji}</div>
+          <div style="flex:1;min-width:0">
+            <div class="name" style="color:${p.color}">${p.idx + 1}号 ${p.name}</div>
+            <div class="meta">答错 ${p.wrong} 次 · 最高连击 ${p.maxCombo}</div>
+          </div>
+          <div class="score">${pk.format === 'all' ? pkFmt(p.doneAt) : `${p.correct}/${pk.total}`}</div>
+        </div>`).join('');
+
+      pkLater(() => {
+        sfx.playVictory();
+        launchConfetti();
+        pkShow('pkResult', true);
+      }, 650);
+    }
+
+    /* ---------- 复盘：题目与答案 ---------- */
+    let pkReviewFilter = 'all';
+    function pkRenderReview() {
+      const pool = pk.pool || [];
+      const rows = pool.map((eq, idx) => {
+        const wrongBy = pk.players.filter(p => p.wrongMap[eq.id]);
+        return { eq, idx, wrongBy };
+      }).filter(r => pkReviewFilter === 'all' || r.wrongBy.length);
+      const wrongQ = pool.filter(eq => pk.players.some(p => p.wrongMap[eq.id])).length;
+      $pk('pkReviewSub').textContent = `共 ${pool.length} 题，其中 ${wrongQ} 题有人答错过 · 点击题目查看拆解讲解`;
+      if (!rows.length) {
+        $pk('pkReviewList').innerHTML = `<div style="text-align:center;padding:1.2rem 0;font-weight:800;color:#059669">🎉 没有人答错过，全部一次答对！</div>`;
+        return;
+      }
+      $pk('pkReviewList').innerHTML = rows.map(r => {
+        const tags = r.wrongBy.length
+          ? r.wrongBy.map(p => `<span class="pk-tag">${p.emoji}${p.idx + 1}号 错${p.wrongMap[r.eq.id]}次</span>`).join('')
+          : `<span class="pk-tag ok">✓ 全员一次答对</span>`;
+        return `<button class="pk-q" data-i="${r.idx}">
+          <div class="pk-q-head"><span class="pk-q-no">${r.idx + 1}</span>
+            <span class="pk-q-eq">${r.eq.a} ${r.eq.op} ${r.eq.b} = <b>${r.eq.answer}</b></span>
+            <span class="pk-q-tags">${tags}</span></div>
+          <div class="pk-q-detail pk-hide"></div></button>`;
+      }).join('');
+    }
+    function pkToggleQ(btn) {
+      const eq = pk.pool[parseInt(btn.dataset.i, 10)];
+      const box = btn.querySelector('.pk-q-detail');
+      const open = box.classList.contains('pk-hide');
+      btn.classList.toggle('open', open);
+      box.classList.toggle('pk-hide', !open);
+      if (open && !box.innerHTML) {
+        const d = getDecompositionData(eq, 'poshi', false);
+        box.innerHTML = `<div class="ttl">🎓 ${d.title}</div>
+          <div style="max-width:300px;margin:.3rem auto 0;background:#fff;border-radius:.6rem;border:1px solid #fde68a">${renderDecompositionSVG(d)}</div>
+          <div class="steps"><div>1️⃣ ${d.step1}</div><div style="margin-top:.2rem">2️⃣ ${d.step2}</div></div>`;
+      }
+    }
+
+    /* ---------- 事件绑定 ---------- */
+    function bindPK() {
+      window.addEventListener('resize', () => { if (pk.active) pkFitAnimals(); });
+      $pk('btnPK').addEventListener('click', openPK);
+      $pk('pkBtnExit').addEventListener('click', closePK);
+      $pk('pkBtnBackSolo').addEventListener('click', closePK);
+      $pk('pkBtnRestart').addEventListener('click', pkShowSetup);
+      $pk('pkBtnToSetup').addEventListener('click', pkShowSetup);
+      $pk('pkBtnStart').addEventListener('click', pkStart);
+      $pk('pkBtnAgain').addEventListener('click', pkStart);
+      $pk('pkBtnResultSolo').addEventListener('click', closePK);
+      $pk('pkBtnReview').addEventListener('click', () => {
+        pkReviewFilter = 'all';
+        document.querySelectorAll('#pkReviewFilter .pk-seg').forEach(x => x.classList.toggle('on', x.dataset.f === 'all'));
+        pkRenderReview();
+        pkShow('pkResult', false);
+        pkShow('pkReview', true);
+      });
+      $pk('pkBtnReviewBack').addEventListener('click', () => { pkShow('pkReview', false); pkShow('pkResult', true); });
+      $pk('pkReviewFilter').addEventListener('click', e => {
+        const b = e.target.closest('.pk-seg'); if (!b) return;
+        pkReviewFilter = b.dataset.f;
+        document.querySelectorAll('#pkReviewFilter .pk-seg').forEach(x => x.classList.toggle('on', x === b));
+        pkRenderReview();
+      });
+      $pk('pkReviewList').addEventListener('click', e => {
+        const q = e.target.closest('.pk-q'); if (q) pkToggleQ(q);
+      });
+      $pk('pkBtnLook').addEventListener('click', () => pkShow('pkResult', false));
+      $pk('pkBtnSound').addEventListener('click', () => {
+        dom.btnSoundToggle.click();
+        $pk('pkBtnSound').textContent = sfx.enabled ? '🔊' : '🔇';
+      });
+      $pk('pkMode').addEventListener('change', e => { pk.mode = e.target.value; });
+      $pk('pkFlip').addEventListener('change', e => { pk.flip = e.target.checked; pkBuildBoard(true); });
+
+      document.querySelectorAll('#pkSetup .pk-segs').forEach(group => {
+        group.addEventListener('click', e => {
+          const b = e.target.closest('.pk-seg');
+          if (!b) return;
+          group.querySelectorAll('.pk-seg').forEach(x => x.classList.toggle('on', x === b));
+          pk[group.dataset.group] = group.dataset.group === 'format' ? b.dataset.val : parseInt(b.dataset.val, 10);
+          if (group.dataset.group === 'n') {
+            $pk('pkFlipRow').style.display = pk.n === 2 ? 'flex' : 'none';
+            pkBuildBoard(true);
+          }
+        });
+      });
+
+      // 多点触控：用 pointerdown，避免多人同时按键时 click 丢失
+      $pk('pkPanels').addEventListener('pointerdown', e => {
+        const btn = e.target.closest('.pk-key');
+        if (!btn) return;
+        e.preventDefault();
+        const panel = btn.closest('.pk-panel');
+        pkPress(parseInt(panel.dataset.p, 10), btn.dataset.k);
+      });
+
+      // 电脑键盘（2人对战可用）：1号 = 主键盘数字 / Backspace / Enter；2号 = 小键盘数字 / Delete / 小键盘Enter
+      window.addEventListener('keydown', e => {
+        if (!pk.active || pk.phase !== 'racing') return;
+        const numpad = e.location === 3;
+        const who = numpad ? 1 : 0;
+        if (who >= pk.n) return;
+        if (e.key >= '0' && e.key <= '9') pkPress(who, e.key);
+        else if (e.key === 'Backspace' || e.key === 'Delete') pkPress(who, 'del');
+        else if (e.key === 'Enter') pkPress(who, 'go');
+        else return;
+        e.preventDefault();
+      });
+    }
+
     window.onload = function () {
       bindEvents();
+      bindPK();
       startRound();
     };
   </script>
