@@ -726,7 +726,7 @@
         <button id="pkBtnStart" class="pk-btn">🚩 开始比赛</button>
         <button id="pkBtnBackSolo" class="pk-btn ghost">返回单人闯关</button>
         <p class="pk-tip" style="display:none;grid-column:1/-1;font-size:.68rem;color:#b45309;font-weight:800;text-align:center">💡 屏幕太矮？开赛会自动全屏；也可以把手机竖过来玩（竖屏更宽松）。</p>
-        <p class="pk-note" style="font-size:.68rem;color:#94a3b8;font-weight:700;text-align:center;margin-top:.5rem">公平规则：所有人答同样的题目（顺序随机）；答错冻结 0.7 秒，题目不变。</p>
+        <p class="pk-note" style="font-size:.68rem;color:#94a3b8;font-weight:700;text-align:center;margin-top:.5rem">公平规则：所有人答同样的题目（顺序随机）；答错冻结 0.7 秒，题目不变。　抽题：乘、除各一半，口诀不重复，口诀里 1~9 各数字出现次数尽量均衡。</p>
       </div>
     </div>
 
@@ -2076,10 +2076,74 @@
     function pkLeaveFullscreen() {
       try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
     }
+    /* ===== PK 选题：口诀不重复 + 乘/除各一半 + 口诀里各数字出现次数尽量均衡 ===== */
+    function pkKey(eq) {
+      // 乘法 a×b、除法 c÷a=b 都对应口诀 (a,b)：7×8、8×7、56÷7、56÷8 是同一句口诀
+      const x = eq.op === '×' ? eq.a : eq.b;
+      const y = eq.op === '×' ? eq.b : eq.answer;
+      return Math.min(x, y) + '_' + Math.max(x, y);
+    }
+    function pkDigits(eq) { return pkKey(eq).split('_').map(Number); }   // 5_5 这类同数相乘算出现两次
+    function pkBalance(sel, byOp, digitList) {
+      const cnt = {};
+      digitList.forEach(d => { cnt[d] = 0; });
+      const add = (e, s) => pkDigits(e).forEach(d => { cnt[d] += s; });
+      sel.forEach(e => add(e, 1));
+      const cost = () => digitList.reduce((c, d) => c + cnt[d] * cnt[d], 0);
+      let cur = cost();
+      for (let it = 0; it < 5000; it++) {
+        const i = Math.floor(Math.random() * sel.length), e = sel[i];
+        const list = byOp[e.op];
+        const c = list[Math.floor(Math.random() * list.length)];
+        if (sel.includes(c)) continue;
+        const kc = pkKey(c);
+        if (sel.some((x, j) => j !== i && pkKey(x) === kc)) continue;
+        add(e, -1); add(c, 1);
+        const nc = cost();
+        if (nc <= cur) { sel[i] = c; cur = nc; } else { add(c, -1); add(e, 1); }
+      }
+    }
+    function pkPickPool() {
+      const bank = generateQuestionBank(pk.mode);
+      const total = Math.min(pk.total, bank.length);
+      const byOp = { '×': bank.filter(e => e.op === '×'), '÷': bank.filter(e => e.op === '÷') };
+      const ops = ['×', '÷'].filter(o => byOp[o].length);
+      const quota = {};
+      if (ops.length === 2) { quota['×'] = Math.ceil(total / 2); quota['÷'] = total - quota['×']; }
+      else quota[ops[0]] = total;
+      const digitSet = new Set();
+      bank.forEach(e => pkDigits(e).forEach(d => digitSet.add(d)));
+      const digitList = [...digitSet].sort((a, b) => a - b);
+
+      let best = null;
+      for (let attempt = 0; attempt < 300; attempt++) {
+        const used = new Set(), out = [];
+        let short = 0;
+        ops.forEach(o => {
+          let got = 0;
+          for (const e of shuffleArray(byOp[o])) {
+            if (got >= quota[o]) break;
+            const k = pkKey(e);
+            if (used.has(k)) continue;
+            used.add(k); out.push(e); got++;
+          }
+          short += quota[o] - got;
+        });
+        if (!best || short < best.short) best = { out, short };
+        if (short === 0) break;
+      }
+      const out = best.out;
+      if (best.short === 0) pkBalance(out, byOp, digitList);
+      if (out.length < total) {   // 口诀不够分（如只练一种运算且题数超过口诀数）时补齐
+        for (const e of shuffleArray(bank)) { if (out.length >= total) break; if (!out.includes(e)) out.push(e); }
+      }
+      return shuffleArray(out);
+    }
+
     function pkStart() {
       pkTryFullscreen();
       pkAbort();
-      const pool = shuffleArray(generateQuestionBank(pk.mode)).slice(0, pk.total);
+      const pool = pkPickPool();
       pk.total = pool.length;       // 题库不足时按实际题数
       pk.pool = pool;
       pk.finished = 0;
