@@ -1,0 +1,2638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>整十整百数乘除闯关小游戏（个人+PK）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-soft: #f4f8f3;
+      --card-bg: #ffffff;
+    }
+    body {
+      font-family: 'Nunito', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background-color: var(--bg-soft);
+      background-image: 
+        radial-gradient(at 10% 10%, rgba(16, 185, 129, 0.08) 0px, transparent 50%),
+        radial-gradient(at 90% 15%, rgba(245, 158, 11, 0.08) 0px, transparent 50%),
+        radial-gradient(at 50% 90%, rgba(59, 130, 246, 0.07) 0px, transparent 50%);
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    button, select {
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+    /* Custom 3D Tactile Button Styles */
+    .btn-key {
+      transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 0 #cbd5e1;
+    }
+    .btn-key:active, .btn-key.active-press {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #cbd5e1;
+    }
+    .btn-key-primary {
+      box-shadow: 0 4px 0 #059669;
+    }
+    .btn-key-primary:active, .btn-key-primary.active-press {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #059669;
+    }
+    .btn-key-amber {
+      box-shadow: 0 4px 0 #d97706;
+    }
+    .btn-key-amber:active, .btn-key-amber.active-press {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #d97706;
+    }
+
+    /* Animations */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-8px); }
+      40%, 80% { transform: translateX(8px); }
+    }
+    .animate-shake {
+      animation: shake 0.4s ease-in-out;
+    }
+    @keyframes popCorrect {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .animate-pop {
+      animation: popCorrect 0.28s ease-out;
+    }
+    @keyframes pulseOrange {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.45); }
+      50% { box-shadow: 0 0 0 5px rgba(245, 158, 11, 0); }
+    }
+    .pulse-retry {
+      animation: pulseOrange 1.8s infinite;
+    }
+    /* Responsive Numpad Grid: Mobile 4x3, Desktop (>640px) 6x2 */
+    .numpad-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.5rem;
+    }
+    @media (min-width: 641px) {
+      .numpad-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 0.625rem;
+      }
+      .numpad-grid [data-key="backspace"] {
+        grid-column: 6;
+        grid-row: 1;
+      }
+      .numpad-grid [data-key="enter"] {
+        grid-column: 6;
+        grid-row: 2;
+      }
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 8px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 8px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    /* ============ PK 多人对战 ============ */
+    .pk-hide { display: none !important; }
+    #pkView {
+      position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column;
+      height: 100vh; height: 100dvh; background: #e6f2dc; overflow: hidden;
+      font-family: 'Nunito', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    }
+    .pk-top {
+      flex: none; display: flex; align-items: center; gap: .5rem; padding: .4rem .6rem;
+      background: rgba(255,255,255,.95); border-bottom: 2px solid #d1e7c4;
+    }
+    .pk-top h2 { font-weight: 900; font-size: 1rem; color: #1e293b; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pk-chip { font-weight: 800; font-size: .8rem; padding: .3rem .65rem; border-radius: .75rem; background: #f1f5f9; border: 1px solid #e2e8f0; color: #334155; white-space: nowrap; cursor: pointer; }
+    .pk-chip.timer { background: #e0f2fe; border-color: #bae6fd; color: #0369a1; font-variant-numeric: tabular-nums; cursor: default; }
+
+    /* track */
+    #pkTrack { flex: none; height: 34%; min-height: 130px; max-height: 300px; display: flex; flex-direction: column; position: relative; }
+    .pk-sky {
+      flex: none; height: 20%; position: relative; text-align: center;
+      background:
+        radial-gradient(ellipse 40% 90% at 18% 100%, #7db58a 0 60%, transparent 61%),
+        radial-gradient(ellipse 50% 120% at 62% 100%, #6aa57c 0 60%, transparent 61%),
+        radial-gradient(ellipse 35% 80% at 92% 100%, #86bf92 0 60%, transparent 61%),
+        linear-gradient(#a9dcf5, #e3f4fc);
+    }
+    .pk-sky span { position: absolute; left: 50%; top: 8%; transform: translateX(-50%); font-weight: 900; font-size: clamp(.7rem, 1.8vw, 1rem); background: rgba(255,255,255,.85); padding: 0 .8rem; border-radius: 999px; color: #475569; white-space: nowrap; }
+    .pk-lanes { flex: 1; display: flex; flex-direction: column; position: relative; min-height: 0; }
+    .pk-lane { flex: 1; min-height: 0; display: flex; align-items: center; position: relative; border-bottom: 2px dashed rgba(255,255,255,.55); }
+    .pk-lane:nth-child(odd)  { background: #78b858; }
+    .pk-lane:nth-child(even) { background: #6aab4a; }
+    .pk-lane-no { flex: none; width: 3.2rem; text-align: center; font-weight: 900; font-size: .72rem; color: #fff; padding: .1rem 0; margin-left: .35rem; border-radius: .6rem; white-space: nowrap; }
+    .pk-run { position: relative; flex: 1; height: 100%; margin: 0 1.6rem 0 .4rem; }
+    .pk-runner { position: absolute; top: 50%; left: 0; height: 0; display: flex; align-items: center; gap: .15rem; transition: left .5s cubic-bezier(.2,.8,.3,1); }
+    .pk-flip { display: inline-block; transform: scaleX(-1); }
+    .pk-ani { display: inline-block; font-size: var(--ani, 2rem); line-height: 1; transform: translateY(-50%); animation: pkBob .5s ease-in-out infinite; }
+    .pk-racing-off .pk-ani { animation: none; }
+    .pk-hop .pk-ani { animation: pkHop .45s ease-out; }
+    @keyframes pkBob { 0%,100% { transform: translateY(-50%) rotate(-4deg); } 50% { transform: translateY(-58%) rotate(4deg); } }
+    @keyframes pkHop { 0% { transform: translateY(-50%); } 40% { transform: translateY(-120%) scale(1.25); } 100% { transform: translateY(-50%); } }
+    .pk-badge { transform: translateY(-50%); font-size: .68rem; font-weight: 900; background: rgba(255,255,255,.92); border-radius: .5rem; padding: 0 .35rem; color: #334155; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pk-finishline { position: absolute; top: 0; bottom: 0; right: .5rem; width: 14px; z-index: 2; background: repeating-conic-gradient(#111 0 25%, #fff 0 50%) 0 0 / 14px 14px; opacity: .9; border-radius: 2px; }
+
+    /* panels */
+    #pkPanels { flex: 1; min-height: 0; display: grid; gap: .5rem; padding: .5rem; }
+    #pkPanels.p2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    #pkPanels.p3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    #pkPanels.p4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+    .pk-panel { container-type: inline-size; --c: #10b981; display: flex; flex-direction: column; gap: .35rem; min-height: 0; min-width: 0; background: #fff; border-radius: 1.1rem; border: 3px solid var(--c); padding: .4rem; box-shadow: 0 3px 0 rgba(0,0,0,.08); position: relative; touch-action: manipulation; }
+    .pk-ptag { flex: none; display: flex; align-items: center; justify-content: space-between; gap: .3rem; background: var(--c); color: #fff; font-weight: 900; font-size: clamp(.7rem, 1.5vw, .95rem); border-radius: .7rem; padding: .15rem .5rem; white-space: nowrap; overflow: hidden; }
+    .pk-prog { flex: none; height: 6px; border-radius: 99px; background: #e2e8f0; overflow: hidden; }
+    .pk-prog > i { display: block; height: 100%; width: 0; background: var(--c); transition: width .3s; }
+    .pk-eq { flex: none; display: flex; align-items: center; justify-content: center; gap: .3em; font-weight: 900; font-variant-numeric: tabular-nums; color: #1e293b; font-size: clamp(1rem, 3vw + .3rem, 2rem); font-size: clamp(.9rem, 9cqw, 2.8rem); padding: .1rem 0; white-space: nowrap; }
+    .pk-eq .op { color: var(--c); }
+    .pk-eq .eqs { color: #94a3b8; }
+    .pk-ans { min-width: 2.6em; text-align: center; border: 3px solid var(--c); border-radius: .5em; background: #fff; padding: 0 .2em; color: var(--c); transition: background .15s; }
+    .pk-ans.ok { background: #d1fae5; }
+    .pk-ans.bad { background: #ffe4e6; border-color: #f43f5e; color: #e11d48; animation: shake .4s ease-in-out; }
+    .pk-pad { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); grid-auto-rows: minmax(0,1fr); gap: .3rem; }
+    .pk-key { border: 0; border-radius: .7rem; background: #f1f5f9; box-shadow: 0 3px 0 #cbd5e1; font-weight: 900; font-size: clamp(1rem, 2.2vw, 1.6rem); color: #1e293b; min-height: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+    .pk-key:active { transform: translateY(2px); box-shadow: 0 1px 0 #cbd5e1; background: #e2e8f0; }
+    .pk-key.del { background: #ffe4e6; color: #be123c; box-shadow: 0 3px 0 #fda4af; font-size: clamp(.8rem, 1.6vw, 1.2rem); }
+    .pk-key.go { background: var(--c); color: #fff; box-shadow: 0 3px 0 rgba(0,0,0,.25); }
+    .pk-panel.locked .pk-pad { opacity: .55; pointer-events: none; }
+    .pk-float { white-space: nowrap; position: absolute; left: 50%; top: 30%; transform: translateX(-50%); font-weight: 900; font-size: 1.6rem; color: var(--c); pointer-events: none; animation: pkFloat .8s ease-out forwards; }
+    @keyframes pkFloat { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -40px); } }
+
+    /* overlays */
+    .pk-overlay { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(15,23,42,.55); backdrop-filter: blur(3px); overflow: auto; }
+    .pk-card { margin: auto; background: #fff; border-radius: 1.5rem; width: 100%; max-width: 30rem; padding: 1.2rem; box-shadow: 0 20px 50px rgba(0,0,0,.3); border: 4px solid #fcd34d; max-height: 100%; overflow: auto; }
+    .pk-card h3 { font-weight: 900; font-size: 1.35rem; text-align: center; color: #1e293b; }
+    .pk-label { font-weight: 800; font-size: .8rem; color: #64748b; margin: .9rem 0 .35rem; }
+    .pk-segs { display: grid; gap: .5rem; grid-template-columns: repeat(var(--n, 2), minmax(0,1fr)); }
+    .pk-seg { border: 2px solid #e2e8f0; border-radius: 1rem; padding: .6rem .3rem; font-weight: 900; background: #fff; color: #475569; cursor: pointer; font-size: .95rem; }
+    .pk-seg small { display: block; font-weight: 700; font-size: .68rem; color: #94a3b8; }
+    .pk-seg.on { border-color: #10b981; background: #ecfdf5; color: #047857; }
+    .pk-select { width: 100%; border: 2px solid #e2e8f0; border-radius: 1rem; padding: .6rem .7rem; font-weight: 800; background: #fff; color: #334155; font-size: .9rem; }
+    .pk-btn { display: block; width: 100%; border: 0; border-radius: 1rem; padding: .8rem; font-weight: 900; font-size: 1.05rem; color: #fff; background: linear-gradient(135deg, #f43f5e, #f97316); box-shadow: 0 4px 0 #be123c; cursor: pointer; margin-top: 1rem; }
+    .pk-btn.alt { background: #10b981; box-shadow: 0 4px 0 #059669; margin-top: .5rem; }
+    .pk-btn.ghost { background: #f1f5f9; color: #475569; box-shadow: 0 4px 0 #cbd5e1; margin-top: .5rem; font-size: .9rem; }
+    #pkCountdown { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,.35); pointer-events: all; }
+    #pkCountdown b { font-size: min(34vw, 40vh); font-weight: 900; color: #fff; text-shadow: 0 6px 0 rgba(0,0,0,.25), 0 0 40px rgba(0,0,0,.35); animation: pkCount .8s ease-out; }
+    @keyframes pkCount { from { transform: scale(2); opacity: 0; } 30% { opacity: 1; } to { transform: scale(1); opacity: 1; } }
+    .pk-rank { display: flex; align-items: center; gap: .6rem; padding: .5rem .7rem; border-radius: 1rem; border: 2px solid #e2e8f0; margin-top: .4rem; font-weight: 800; color: #334155; }
+    .pk-rank.first { background: #fffbeb; border-color: #fbbf24; }
+    .pk-rank .medal { font-size: 1.6rem; width: 2rem; text-align: center; }
+    .pk-rank .meta { flex: 1; min-width: 0; font-size: .75rem; color: #64748b; }
+    .pk-rank .name { font-weight: 900; font-size: 1rem; color: #1e293b; }
+    .pk-rank .score { font-weight: 900; font-variant-numeric: tabular-nums; }
+
+    /* 手机横屏 / 矮屏：压缩顶栏与赛道，给答题区留空间 */
+    @media (max-height: 520px) {
+      .pk-top { padding: .2rem .5rem; gap: .35rem; }
+      .pk-top h2 { display: none; }
+      .pk-top { justify-content: space-between; }
+      .pk-chip { font-size: .72rem; padding: .2rem .55rem; }
+      #pkTrack { height: 33%; min-height: 96px; max-height: 150px; }
+      .pk-sky { height: 11%; min-height: 8px; }
+      .pk-sky span { display: none; }
+      .pk-lane-no { width: 2.7rem; font-size: .6rem; margin-left: .25rem; }
+      .pk-badge { font-size: .6rem; }
+      #pkPanels { padding: .3rem; gap: .35rem; }
+      .pk-panel { padding: .25rem; gap: .2rem; border-width: 2px; border-radius: .8rem; }
+      .pk-ptag { font-size: .66rem; padding: .05rem .4rem; }
+      .pk-prog { height: 4px; }
+      .pk-eq { font-size: min(1.5rem, 6.5vh, 9cqw); padding: 0; }
+      .pk-ans { border-width: 2px; min-width: 1.7em; }
+      .pk-pad { gap: .2rem; }
+      .pk-key { font-size: min(1.2rem, 5.2vh); border-radius: .5rem; box-shadow: 0 2px 0 #cbd5e1; }
+      .pk-key.del { font-size: min(.9rem, 4.2vh); box-shadow: 0 2px 0 #fda4af; }
+      .pk-key.go { box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+      .pk-float { font-size: 1.1rem; top: 18%; }
+      .pk-overlay { padding: .5rem; }
+      .pk-card { padding: .8rem 1rem; }
+      .pk-card h3 { font-size: 1.1rem; }
+      .pk-label { margin: .5rem 0 .25rem; }
+      .pk-seg { padding: .35rem .2rem; }
+      .pk-btn { padding: .55rem; margin-top: .6rem; font-size: .95rem; }
+    }
+
+    .pk-done { position: absolute; inset: 0; z-index: 3; border-radius: .8rem; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem; text-align: center; font-weight: 900; color: var(--c); padding: .3rem; }
+    .pk-done .big { font-size: clamp(1.1rem, 2.6vw, 1.9rem); }
+    .pk-done .sub { font-size: clamp(.7rem, 1.5vw, 1rem); color: #475569; font-weight: 800; }
+    .pk-done .wait { font-size: .7rem; color: #94a3b8; font-weight: 700; }
+
+    .pk-review-card { max-width: 36rem; }
+    #pkReviewList { margin-top: .6rem; }
+    .pk-q { width: 100%; text-align: left; background: #fff; border: 2px solid #e2e8f0; border-radius: .9rem; padding: .45rem .7rem; margin-top: .4rem; cursor: pointer; display: block; }
+    .pk-q.open { border-color: #fbbf24; background: #fffbeb; }
+    .pk-q-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .pk-q-eq { font-weight: 900; font-size: 1.15rem; color: #1e293b; font-variant-numeric: tabular-nums; min-width: 8.5rem; }
+    .pk-q-eq b { color: #059669; }
+    .pk-q-no { font-size: .7rem; font-weight: 800; color: #94a3b8; width: 1.6rem; }
+    .pk-q-tags { display: flex; gap: .3rem; flex-wrap: wrap; flex: 1; font-size: .72rem; font-weight: 800; }
+    .pk-tag { padding: 0 .4rem; border-radius: .5rem; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; white-space: nowrap; }
+    .pk-tag.ok { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+    .pk-q-detail { margin-top: .4rem; }
+    .pk-q-detail .steps { font-size: .78rem; font-weight: 800; color: #334155; background: #f8fafc; border-radius: .6rem; padding: .4rem .6rem; margin-top: .3rem; }
+    .pk-q-detail .ttl { font-size: .78rem; font-weight: 900; color: #92400e; }
+
+    /* 超矮屏（手机横屏 + 浏览器地址栏，可用高度常常只有 250~330px）
+       数字键改为 2 行 × 6 列，赛道压成细条 */
+    @media (max-height: 430px) {
+      .pk-top { padding: .1rem .4rem; min-height: 0; }
+      .pk-chip { font-size: .66rem; padding: .12rem .5rem; }
+      #pkTrack { height: auto; min-height: 0; max-height: none; flex: none; }
+      .pk-sky { height: 6px; min-height: 0; }
+      .pk-lane { flex: none; height: var(--lane-h, 24px); }
+      .pk-lane-no { font-size: .58rem; width: 2.5rem; padding: 0; }
+      .pk-badge { font-size: .55rem; padding: 0 .25rem; }
+      #pkPanels { padding: .25rem; gap: .3rem; }
+      .pk-panel { padding: .2rem; gap: .15rem; border-width: 2px; border-radius: .7rem; }
+      .pk-ptag { font-size: .62rem; padding: 0 .35rem; line-height: 1.35; }
+      .pk-prog { height: 3px; }
+      .pk-eq { font-size: min(1.35rem, 8.5vh, 9cqw); line-height: 1.1; }
+      .pk-ans { border-width: 2px; min-width: 1.6em; }
+      .pk-pad { grid-template-columns: repeat(6, minmax(0,1fr)); grid-template-rows: repeat(2, minmax(0,1fr)); grid-auto-rows: auto; gap: .18rem; }
+      .pk-key { font-size: min(1.15rem, 7vh); border-radius: .45rem; box-shadow: 0 2px 0 #cbd5e1; }
+      .pk-key.del { font-size: min(.85rem, 5vh); box-shadow: 0 2px 0 #fda4af; }
+      .pk-key.go  { box-shadow: 0 2px 0 rgba(0,0,0,.25); }
+      .pk-key[data-k="1"] { order: 1; } .pk-key[data-k="2"] { order: 2; } .pk-key[data-k="3"] { order: 3; }
+      .pk-key[data-k="4"] { order: 4; } .pk-key[data-k="5"] { order: 5; } .pk-key[data-k="del"] { order: 6; }
+      .pk-key[data-k="6"] { order: 7; } .pk-key[data-k="7"] { order: 8; } .pk-key[data-k="8"] { order: 9; }
+      .pk-key[data-k="9"] { order: 10; } .pk-key[data-k="0"] { order: 11; } .pk-key[data-k="go"] { order: 12; }
+      .pk-float { font-size: .95rem; top: 12%; }
+      /* 设置页：横向三栏，一屏放下 */
+      .pk-overlay { padding: .3rem; }
+      .pk-card { max-width: 46rem; padding: .5rem .8rem .6rem; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); column-gap: .6rem; align-items: start; border-width: 3px; border-radius: 1rem; }
+      .pk-card > h3 { grid-column: 1 / -1; font-size: 1rem; }
+      .pk-card > .pk-grp-wide { grid-column: 1 / -1; }
+      .pk-review-card { display: block; max-width: 40rem; }
+      .pk-grp-wide .pk-seg small { display: none; }
+      .pk-grp-wide .pk-seg { padding: .2rem; }
+      .pk-card > p:not(.pk-tip) { display: none; }
+      .pk-card > .pk-tip { display: block !important; }
+      .pk-card > label, .pk-card > .pk-btn, .pk-card > .pk-tip { grid-column: 1 / -1; }
+      .pk-card > #pkFlipRow { margin-top: .3rem !important; font-size: .68rem !important; }
+      .pk-card > .pk-btn { margin-top: .35rem; padding: .4rem; font-size: .9rem; }
+      .pk-label { margin: .25rem 0 .15rem; font-size: .68rem; }
+      .pk-seg { padding: .25rem .1rem; font-size: .8rem; border-radius: .7rem; }
+      .pk-seg small { font-size: .58rem; }
+      .pk-select { padding: .35rem .4rem; font-size: .75rem; border-radius: .7rem; }
+      .pk-rank { padding: .25rem .5rem; margin-top: .2rem; }
+      #pkResult .pk-card { display: block; max-width: 28rem; }
+      #pkResult .pk-card > div:first-child { font-size: 1.6rem !important; }
+      #pkResult .pk-btn { display: inline-block; width: calc(50% - .25rem); margin: .35rem .1rem 0; font-size: .75rem; padding: .35rem 0; }
+    }
+
+    /* 竖屏 / 手机 */
+    @media (max-width: 760px) and (orientation: portrait) {
+      #pkTrack { height: 26%; }
+      #pkPanels.p4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      #pkPanels.p3 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      #pkPanels.p3 .pk-panel:nth-child(3) { grid-column: 1 / -1; }
+      #pkPanels.p2 { grid-template-columns: minmax(0,1fr); }
+      #pkPanels.p2.flip .pk-panel[data-p="0"] { transform: rotate(180deg); }
+      .pk-lane-no { width: 2.6rem; font-size: .62rem; }
+      .pk-eq { font-size: clamp(.85rem, 9cqw, 1.6rem); gap: .2em; }
+      .pk-ans { min-width: 1.6em; border-width: 2px; }
+      .pk-ptag { font-size: .68rem; padding: .1rem .35rem; }
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800 pb-10">
+
+  <!-- Confetti Canvas Overlay -->
+  <canvas id="confettiCanvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+  <!-- Top Navigation & Status Header -->
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-emerald-100 shadow-xs">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-2.5">
+      <!-- Top Row: Brand Title + Single-Line Toolbar (Mode Select + Refresh + Sound) -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <!-- Brand Title Row -->
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="w-8 h-8 sm:w-10 sm:h-10 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-white shadow-xs font-black text-sm sm:text-base">
+              ×÷
+            </div>
+            <div class="min-w-0">
+              <h1 class="text-base sm:text-lg font-extrabold text-slate-800 tracking-tight flex items-center gap-1.5 truncate">
+                <span class="truncate">整十整百数乘除闯关</span>
+                <span class="hidden sm:inline-block text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 shrink-0">想几个十/几个百</span>
+              </h1>
+              <p class="text-xs text-slate-500 hidden sm:block">不重不漏洗牌 · 错题自动回炉 · 100%掌握通关</p>
+            </div>
+          </div>
+
+          <!-- Mobile Quick Matrix Jump Button -->
+          <button id="btnMatrixJumpMobile" title="查看算式图鉴" class="md:hidden shrink-0 px-2.5 py-1 rounded-xl bg-emerald-50 active:bg-emerald-100 text-emerald-700 border border-emerald-200 font-extrabold text-xs flex items-center gap-1 transition">
+            <span>📋</span><span>算式图鉴</span>
+          </button>
+        </div>
+
+        <!-- Toolbar Row: Mode Dropdown + Refresh Button + Sound Button (Strictly single row, never wraps) -->
+        <div class="flex items-center gap-2 flex-nowrap w-full md:w-auto">
+          <!-- Mode Dropdown -->
+          <div class="relative flex-1 min-w-0 md:w-80 md:flex-initial">
+            <select id="modeSelect" aria-label="选择练习模式" class="w-full truncate appearance-none bg-emerald-50 hover:bg-emerald-100/80 text-emerald-900 font-bold text-xs sm:text-sm rounded-xl pl-2.5 pr-7 h-[38px] border border-emerald-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 cursor-pointer transition"></select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-emerald-700">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+
+          <!-- Refresh / Reset Button -->
+          <button id="btnResetRound" title="重新洗牌开始本模式" class="shrink-0 w-[38px] sm:w-auto h-[38px] sm:px-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 border border-slate-200/80 font-bold text-xs sm:text-sm flex items-center justify-center gap-1 transition">
+            <svg class="w-4 h-4 text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            <span class="hidden sm:inline">重来</span>
+          </button>
+
+          <!-- PK Mode Entry -->
+          <button id="btnPK" title="2人 / 4人 同屏PK" class="shrink-0 h-[38px] px-2.5 sm:px-3 rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 hover:from-rose-600 hover:to-orange-600 text-white font-extrabold text-xs sm:text-sm flex items-center gap-1 shadow-sm active:scale-95 transition">
+            <span>⚔️</span><span>多人PK</span>
+          </button>
+
+          <!-- Sound Toggle Button -->
+          <button id="btnSoundToggle" title="音效开关" class="shrink-0 w-[38px] h-[38px] rounded-xl bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-700 border border-amber-200 flex items-center justify-center transition">
+            <svg id="iconSoundOn" class="icon-sound-on w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+            <svg id="iconSoundOff" class="icon-sound-off w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Progress Bar & Live Stats Strip -->
+      <div class="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-4 bg-slate-50/90 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-2xl border border-slate-200/70">
+        <!-- Mastery Progress -->
+        <div class="flex-1 flex items-center gap-2 sm:gap-3">
+          <div class="text-xs font-extrabold text-slate-600 whitespace-nowrap flex items-center gap-1">
+            <span>🎯 已掌握</span>
+            <span id="progressText" class="text-emerald-600 text-xs sm:text-sm tabular-nums">0 / 72</span>
+          </div>
+          <div class="flex-1 h-2.5 sm:h-3 bg-slate-200 rounded-full overflow-hidden p-0.5">
+            <div id="progressBar" class="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <span id="queueRemainBadge" class="text-[11px] sm:text-xs font-bold px-2 py-0.5 rounded-lg bg-slate-200/80 text-slate-600 tabular-nums whitespace-nowrap">
+            待练 72
+          </span>
+        </div>
+
+        <!-- Stats Pills: Combo, Retry Queue, Timer -->
+        <div class="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-extrabold">
+          <div id="comboBadge" class="flex-1 sm:flex-initial justify-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl bg-orange-50 text-orange-600 border border-orange-200/80 flex items-center gap-1 tabular-nums">
+            <span>🔥 连击</span>
+            <span id="comboCount" class="text-xs sm:text-sm">0</span>
+          </div>
+          <button id="btnJumpWrongBook" class="flex-1 sm:flex-initial justify-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200/80 flex items-center gap-1 tabular-nums transition" title="点击查看错题本">
+            <span>🔄 错题本</span>
+            <span id="mistakeCount" class="text-xs sm:text-sm">0</span>
+          </button>
+          <div class="flex-1 sm:flex-initial justify-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-xl bg-sky-50 text-sky-700 border border-sky-200/80 flex items-center gap-1 tabular-nums">
+            <span>⏱️ 用时</span>
+            <span id="timerText" class="text-xs sm:text-sm">00:00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 pt-2.5 sm:pt-4 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-start">
+
+    <!-- Left Column: Question Card, Smart Hint & Numpad (7 cols on lg) -->
+    <section class="lg:col-span-7 flex flex-col gap-3 sm:gap-4">
+
+      <!-- Question Arena Card -->
+      <div id="questionCard" class="bg-white rounded-3xl p-3.5 sm:p-6 shadow-md border-2 border-emerald-100 relative overflow-hidden transition-all">
+        
+        <!-- Card Top Meta Bar -->
+        <div class="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+          <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <span id="eqCategoryBadge" class="px-2.5 sm:px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800">
+              表内乘法口诀
+            </span>
+            <span id="retryTag" class="hidden px-2.5 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+              🔄 错题回炉巩固
+            </span>
+          </div>
+
+          <!-- Toggle Hint Button -->
+          <button id="btnShowHint" class="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-700 border border-amber-200 text-xs font-extrabold flex items-center gap-1 transition shrink-0">
+            <span>💡 口诀/点阵提示</span>
+            <span class="hidden sm:inline text-[11px] text-amber-500 font-normal">(H键)</span>
+          </button>
+        </div>
+
+        <!-- Big Equation Display -->
+        <div class="my-2.5 sm:my-5 py-3 sm:py-4 px-3 rounded-2xl bg-gradient-to-b from-slate-50 to-emerald-50/30 border border-slate-200/80 flex items-center justify-center">
+          <div class="flex items-center justify-center gap-2 sm:gap-4 text-[2rem] sm:text-6xl font-black tracking-tight tabular-nums text-slate-800">
+            <span id="numA" class="text-slate-800">7</span>
+            <span id="opSign" class="text-emerald-600">×</span>
+            <span id="numB" class="text-slate-800">8</span>
+            <span class="text-slate-400">=</span>
+            <!-- Answer Input Box -->
+            <div id="answerBox" class="min-w-[82px] sm:min-w-[116px] h-14 sm:h-20 px-3 sm:px-4 rounded-2xl bg-white border-4 border-emerald-400 shadow-inner flex items-center justify-center text-emerald-700 transition-all">
+              <span id="userInputText">?</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feedback Banner (Shown on Correct / Wrong / Victory) -->
+        <div id="feedbackBanner" class="hidden rounded-2xl px-3.5 py-3 sm:px-4 mb-3 text-sm font-bold flex items-center justify-between gap-2 transition-all">
+          <div id="feedbackMessage" class="flex items-center gap-2 w-full"></div>
+          <button id="btnNextAfterWrong" class="hidden w-full sm:w-auto justify-center px-3.5 py-2 sm:py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-extrabold text-xs shadow-xs flex items-center transition shrink-0">
+            学会啦，下一题 (Enter) ➔
+          </button>
+        </div>
+
+        <!-- Smart Step-by-Step Visual Hint Panel (乘法口诀 / 想乘算除 / 平均分点阵) -->
+        <div id="hintPanel" class="hidden mt-2 mb-3 rounded-2xl bg-amber-50/90 border-2 border-amber-200 p-3.5 sm:p-4 transition-all">
+          <div id="hintHeaderRow" class="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-3 border-b border-amber-200/70">
+            <div class="flex items-center gap-2">
+              <span class="text-base">🎓</span>
+              <span id="hintTitle" class="font-extrabold text-amber-900 text-sm sm:text-base">乘法口诀提示</span>
+            </div>
+            <!-- Method Switcher for Division (想乘算除 vs 平均分圈组) -->
+            <div id="subMethodTabs" class="hidden flex items-center gap-1 bg-white p-1 rounded-xl border border-amber-200 text-xs font-bold">
+              <button data-method="koujue" class="sub-method-btn px-2.5 py-1 rounded-lg bg-amber-500 text-white transition">想乘算除</button>
+              <button data-method="group" class="sub-method-btn px-2.5 py-1 rounded-lg text-slate-600 hover:bg-amber-50 transition">平均分圈组</button>
+            </div>
+          </div>
+
+          <div id="hintDetailBody" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            <!-- Left: Textbook Diagram (SVG) & Steps -->
+            <div class="md:col-span-7 flex flex-col items-center sm:items-start gap-2">
+              <div id="hintSvgContainer" class="w-full flex justify-center bg-white rounded-xl p-2 border border-amber-100 shadow-sm">
+                <!-- Dynamic SVG injected here -->
+              </div>
+              <div id="hintStepsText" class="w-full space-y-1 text-xs sm:text-sm font-bold text-slate-700 bg-white/80 rounded-xl p-2.5 border border-amber-100">
+                <!-- Step 1 & Step 2 injected here -->
+              </div>
+            </div>
+
+            <!-- Right: Visual Row x Col Array Grid (直观行列点阵图) -->
+            <div class="md:col-span-5 flex flex-col items-center justify-center bg-white rounded-xl p-3 border border-amber-100 shadow-sm">
+              <div class="text-xs font-extrabold text-slate-500 mb-2 flex items-center gap-2">
+                <span>直观行列点阵</span>
+                <span id="tenFrameLegend" class="text-[11px] font-normal"></span>
+              </div>
+              <div id="tenFrameContainer" class="w-full flex flex-col items-center justify-center min-h-[110px]">
+                <!-- Dynamic r x c dot array rendered here -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input Mode Switch & Numpad Area -->
+        <div class="mt-2 pt-2.5 sm:pt-3 border-t border-slate-100">
+          <div class="flex items-center justify-between gap-2 mb-2.5 text-xs">
+            <span class="hidden md:flex font-bold text-slate-500 items-center gap-1">
+              ⌨️ 支持点击下方数字键 或 使用电脑键盘输入
+            </span>
+            <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-full md:w-auto justify-center">
+              <button id="btnModeAuto" class="flex-1 md:flex-initial px-3 py-1 rounded-lg font-extrabold bg-white text-emerald-700 shadow-xs transition">
+                ⚡ 智能自动判题
+              </button>
+              <button id="btnModeManual" class="flex-1 md:flex-initial px-3 py-1 rounded-lg font-bold text-slate-600 hover:text-slate-900 transition">
+                ⏎ 手动点确定
+              </button>
+            </div>
+          </div>
+
+          <!-- Responsive Kid-Friendly Numpad -->
+          <div class="numpad-grid">
+            <button data-key="1" class="numpad-btn btn-key h-12 sm:h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-2xl font-black text-slate-800">1</button>
+            <button data-key="2" class="numpad-btn btn-key h-12 sm:h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-2xl font-black text-slate-800">2</button>
+            <button data-key="3" class="numpad-btn btn-key h-12 sm:h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-2xl font-black text-slate-800">3</button>
+            <button data-key="4" class="numpad-btn btn-key h-12 sm:h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-2xl font-black text-slate-800">4</button>
+            <button data-key="5" class="numpad-btn btn-key h-12 sm:h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-2xl font-black text-slate-800">5</button>
+            <button data-key="6" class="numpad-btn btn-key h-12 sm:h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-2xl font-black text-slate-800">6</button>
+            <button data-key="7" class="numpad-btn btn-key h-12 sm:h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-2xl font-black text-slate-800">7</button>
+            <button data-key="8" class="numpad-btn btn-key h-12 sm:h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-2xl font-black text-slate-800">8</button>
+            <button data-key="9" class="numpad-btn btn-key h-12 sm:h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-2xl font-black text-slate-800">9</button>
+            <button data-key="0" class="numpad-btn btn-key h-12 sm:h-14 rounded-2xl bg-slate-50 hover:bg-emerald-50 active:bg-emerald-100 border border-slate-200 text-2xl font-black text-slate-800">0</button>
+            <button data-key="backspace" class="numpad-btn btn-key h-12 sm:h-14 rounded-2xl bg-rose-50 hover:bg-rose-100 active:bg-rose-200 border border-rose-200 text-sm sm:text-base font-extrabold text-rose-700 flex items-center justify-center gap-1">
+              <span>⌫</span><span>退格</span>
+            </button>
+            <button data-key="enter" class="numpad-btn btn-key btn-key-primary h-12 sm:h-14 rounded-2xl bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white text-sm sm:text-base font-extrabold flex items-center justify-center gap-1">
+              <span>✓</span><span>确定</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rules & Coverage Explanation Card -->
+      <div class="bg-white/80 rounded-2xl p-3 sm:p-3.5 border border-slate-200/80 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold shrink-0">不重不漏保证</span>
+          <span>本模式的所有算式都会练到，不重不漏；答对移出题池，答错自动排入队尾回炉重练，直到100%算式全部答对才通关。</span>
+        </div>
+        <span class="text-slate-400 hidden sm:inline">点击右侧图鉴任意算式可查看口诀与点阵详解</span>
+      </div>
+    </section>
+
+    <!-- Right Column: Real-Time Equation Mastery Matrix (算式全图鉴 / 打卡矩阵) (5 cols on lg) -->
+    <aside id="matrixSection" class="lg:col-span-5 bg-white rounded-3xl p-4 sm:p-5 shadow-md border-2 border-slate-100 flex flex-col scroll-mt-28">
+      <!-- Matrix Header & Legend -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+        <div>
+          <h2 class="text-base font-extrabold text-slate-800 flex items-center gap-1.5">
+            <span>🗺️ 算式全图鉴打卡矩阵</span>
+            <span id="matrixTotalBadge" class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">共 72 道</span>
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">实时追踪每一道乘除算式掌握状态，点击格子可查看口诀法</p>
+        </div>
+      </div>
+
+      <!-- Status Color Legend -->
+      <div class="grid grid-cols-3 gap-2 my-3 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/60 text-xs font-bold">
+        <div class="flex items-center gap-1.5 text-slate-600">
+          <span class="w-3.5 h-3.5 rounded-md bg-slate-200 border border-slate-300 inline-block shrink-0"></span>
+          <span>待练习 (<span id="legendPending" class="tabular-nums">72</span>)</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-emerald-700">
+          <span class="w-3.5 h-3.5 rounded-md bg-emerald-500 inline-block shrink-0"></span>
+          <span>一次掌握 (<span id="legendMastered" class="tabular-nums">0</span>)</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-amber-700">
+          <span class="w-3.5 h-3.5 rounded-md bg-amber-500 inline-block shrink-0"></span>
+          <span>曾错/回炉 (<span id="legendRetry" class="tabular-nums">0</span>)</span>
+        </div>
+      </div>
+
+      <!-- Filter Tabs (全部 / 乘法表 / 除法表 / 错题本) -->
+      <div class="flex items-center gap-1.5 mb-3 bg-slate-100 p-1 rounded-xl text-xs font-extrabold">
+        <button data-tab="all" class="matrix-tab flex-1 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition">全部</button>
+        <button data-tab="mul" class="matrix-tab flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">乘法表</button>
+        <button data-tab="div" class="matrix-tab flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">除法表</button>
+        <button data-tab="wrong" class="matrix-tab flex-1 py-1.5 rounded-lg text-amber-700 hover:text-amber-900 transition">错题本</button>
+      </div>
+
+      <!-- Scrollable Matrix Grid Container -->
+      <div id="matrixContainer" class="overflow-y-auto max-h-[460px] pr-1 space-y-4">
+        <!-- Matrix groups rendered dynamically -->
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- Inspection Modal (When clicking any cell in the Matrix to view its decomposition) -->
+  <div id="inspectModal" class="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-xs hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-5 shadow-2xl border-2 border-amber-200 animate-pop">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🔍</span>
+          <h3 id="inspectTitle" class="font-black text-lg text-slate-800">算式详解</h3>
+        </div>
+        <button id="btnCloseInspect" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center">✕</button>
+      </div>
+      <div id="inspectBody" class="py-4 space-y-3">
+        <!-- Populated dynamically -->
+      </div>
+      <div class="pt-2 flex justify-end">
+        <button id="btnCloseInspectBottom" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-sm">我知道啦</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victory / Completion Settlement Modal -->
+  <div id="victoryModal" class="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 cursor-pointer" title="点击空白处关闭弹窗并保留成绩">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border-4 border-emerald-300 animate-pop max-h-[90vh] flex flex-col relative cursor-default" title="">
+      <button id="btnCloseVictory" title="关闭弹窗，保留当前成绩与图鉴" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center justify-center transition">✕</button>
+      <div class="text-center">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 text-4xl mb-2 shadow-inner">
+          🏆
+        </div>
+        <h2 class="text-2xl font-black text-slate-800">太棒啦！全算式通关成功！</h2>
+        <p id="victorySubtitle" class="text-sm text-slate-500 mt-1">本模式所有乘除算式均已100%不重不漏练习并掌握！</p>
+      </div>
+
+      <!-- Summary Stat Cards -->
+      <div class="grid grid-cols-3 gap-3 my-5">
+        <div class="bg-emerald-50 rounded-2xl p-3 text-center border border-emerald-200">
+          <div class="text-xs font-bold text-emerald-700">一次正确率</div>
+          <div id="vicAccuracy" class="text-2xl font-black text-emerald-600 mt-0.5 tabular-nums">100%</div>
+        </div>
+        <div class="bg-sky-50 rounded-2xl p-3 text-center border border-sky-200">
+          <div class="text-xs font-bold text-sky-700">通关总用时</div>
+          <div id="vicTime" class="text-2xl font-black text-sky-600 mt-0.5 tabular-nums">02:15</div>
+        </div>
+        <div class="bg-orange-50 rounded-2xl p-3 text-center border border-orange-200">
+          <div class="text-xs font-bold text-orange-700">最高连击</div>
+          <div id="vicMaxCombo" class="text-2xl font-black text-orange-600 mt-0.5 tabular-nums">64</div>
+        </div>
+      </div>
+
+      <!-- Mistake Review List -->
+      <div class="flex-1 overflow-y-auto min-h-[100px] max-h-[220px] bg-slate-50 rounded-2xl p-3.5 border border-slate-200 mb-5">
+        <div class="text-xs font-extrabold text-slate-600 mb-2 flex items-center justify-between">
+          <span>📝 本轮错题回顾与订正记录</span>
+          <span id="vicMistakeBadge" class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">0道</span>
+        </div>
+        <div id="vicMistakeList" class="space-y-2 text-xs">
+          <!-- Mistake items or zero-mistake celebration -->
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-col sm:flex-row gap-3">
+        <button id="btnRetryMistakesOnly" class="hidden flex-1 py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-sm shadow-md flex items-center justify-center gap-1.5 transition">
+          <span>🎯 仅重练本轮错题</span>
+          <span id="btnRetryMistakesCount">(0道)</span>
+        </button>
+        <button id="btnPlayAgainFull" class="flex-1 py-3 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-sm shadow-md flex items-center justify-center gap-1.5 transition">
+          <span>🎲 重新洗牌再来一轮</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- ============ PK 多人对战视图 ============ -->
+  <div id="pkView" class="pk-hide">
+    <div class="pk-top">
+      <button id="pkBtnExit" class="pk-chip">← 退出</button>
+      <h2>⚔️ 口算PK大赛</h2>
+      <span id="pkTimer" class="pk-chip timer">00:00.0</span>
+      <button id="pkBtnSound" class="pk-chip" title="音效开关">🔊</button>
+      <button id="pkBtnRestart" class="pk-chip">⚙️ 设置</button>
+    </div>
+    <div id="pkTrack">
+      <div class="pk-sky"><span id="pkSkyText">🏃 口算田径大赛 · 全员答完，按用时排名</span></div>
+      <div class="pk-lanes" id="pkLanes"></div>
+    </div>
+    <div id="pkPanels" class="p2"></div>
+
+    <!-- 设置 -->
+    <div id="pkSetup" class="pk-overlay">
+      <div class="pk-card">
+        <h3>⚔️ 多人PK · 口算田径赛</h3>
+        <p style="text-align:center;font-size:.75rem;color:#64748b;font-weight:700;margin-top:.2rem">每人一块答题区，答对一题小动物就向前跑一步！</p>
+
+        <div class="pk-grp"><div class="pk-label">参赛人数</div>
+        <div class="pk-segs" data-group="n" style="--n:3">
+          <button class="pk-seg on" data-val="2">👬 2人PK<small>双人对战</small></button>
+          <button class="pk-seg" data-val="3">👨‍👩‍👦 3人PK<small>三人同屏</small></button>
+          <button class="pk-seg" data-val="4">🧑‍🤝‍🧑 4人PK<small>四人同屏</small></button>
+        </div></div>
+
+        <div class="pk-grp"><div class="pk-label">题库</div>
+        <select id="pkMode" class="pk-select"></select></div>
+
+        <div class="pk-grp"><div class="pk-label">赛程（先答对几题到终点）</div>
+        <div class="pk-segs" data-group="total" style="--n:3">
+          <button class="pk-seg on" data-val="10">10题<small>快赛</small></button>
+          <button class="pk-seg" data-val="20">20题<small>标准</small></button>
+          <button class="pk-seg" data-val="30">30题<small>长赛</small></button>
+        </div></div>
+
+        <div class="pk-grp pk-grp-wide"><div class="pk-label">赛制</div>
+        <div class="pk-segs" data-group="format" style="--n:2">
+          <button class="pk-seg on" data-val="all">📋 全员答完再排名<small>每人答完全部题，按完成用时排名</small></button>
+          <button class="pk-seg" data-val="first">🏁 抢先到终点<small>第一个冲线，比赛立即结束</small></button>
+        </div></div>
+
+        <label id="pkFlipRow" style="display:flex;align-items:center;gap:.5rem;margin-top:.9rem;font-weight:800;font-size:.8rem;color:#475569;cursor:pointer">
+          <input type="checkbox" id="pkFlip" style="width:18px;height:18px">
+          手机/平板竖放2人对坐时，上方玩家答题区倒置
+        </label>
+
+        <button id="pkBtnStart" class="pk-btn">🚩 开始比赛</button>
+        <button id="pkBtnBackSolo" class="pk-btn ghost">返回单人闯关</button>
+        <p class="pk-tip" style="display:none;grid-column:1/-1;font-size:.68rem;color:#b45309;font-weight:800;text-align:center">💡 屏幕太矮？开赛会自动全屏；也可以把手机竖过来玩（竖屏更宽松）。</p>
+        <p class="pk-note" style="font-size:.68rem;color:#94a3b8;font-weight:700;text-align:center;margin-top:.5rem">公平规则：所有人答同样的题目（顺序随机）；答错冻结 0.7 秒，题目不变。乘法：整十、整百各一半；除法：整十占1/10，整百、几百几十各一半；每题口诀都不同；10×k、100×k、商为100的算式各最多一道；口诀里 2~9 各数字出现次数尽量相同。</p>
+      </div>
+    </div>
+
+    <!-- 倒计时 -->
+    <div id="pkCountdown" class="pk-hide"><b id="pkCountNum">3</b></div>
+
+    <!-- 结算 -->
+    <div id="pkResult" class="pk-overlay pk-hide">
+      <div class="pk-card">
+        <div style="text-align:center;font-size:2.6rem">🏆</div>
+        <h3 id="pkWinTitle">获胜！</h3>
+        <p id="pkWinSub" style="text-align:center;font-size:.8rem;color:#64748b;font-weight:700;margin-top:.2rem"></p>
+        <div id="pkRankList" style="margin-top:.5rem"></div>
+        <button id="pkBtnAgain" class="pk-btn">🔁 再来一局</button>
+        <button id="pkBtnReview" class="pk-btn alt" style="background:#6366f1;box-shadow:0 4px 0 #4338ca">📖 查看题目与答案（复盘讲解）</button>
+        <button id="pkBtnToSetup" class="pk-btn alt">⚙️ 修改设置</button>
+        <button id="pkBtnResultSolo" class="pk-btn ghost">↩ 返回单人闯关</button>
+        <button id="pkBtnLook" class="pk-btn ghost">看看赛场</button>
+      </div>
+    </div>
+
+    <!-- 复盘：题目与答案 -->
+    <div id="pkReview" class="pk-overlay pk-hide">
+      <div class="pk-card pk-review-card">
+        <h3>📖 题目与答案复盘</h3>
+        <p id="pkReviewSub" style="text-align:center;font-size:.75rem;color:#64748b;font-weight:700;margin-top:.2rem"></p>
+        <div class="pk-segs" id="pkReviewFilter" style="--n:2;margin-top:.6rem">
+          <button class="pk-seg on" data-f="all">全部题目</button>
+          <button class="pk-seg" data-f="wrong">只看答错过的</button>
+        </div>
+        <div id="pkReviewList"></div>
+        <button id="pkBtnReviewBack" class="pk-btn">← 返回成绩</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /********************************************************************
+     * 1. SOUND SYNTHESIZER (Web Audio API - No external audio files)
+     ********************************************************************/
+    class SoundEffects {
+      constructor() {
+        this.enabled = true;
+        this.ctx = null;
+      }
+
+      initContext() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playTone(freq, type, duration, startTimeOffset = 0, gainVal = 0.14) {
+        if (!this.enabled) return;
+        try {
+          this.initContext();
+          if (!this.ctx) return;
+          const now = this.ctx.currentTime + startTimeOffset;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, now);
+          gain.gain.setValueAtTime(gainVal, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + duration);
+        } catch (e) {
+          // Ignore audio context restrictions
+        }
+      }
+
+      playKeyClick() {
+        this.playTone(520, 'sine', 0.05, 0, 0.06);
+      }
+
+      playCorrect(combo = 1) {
+        const boost = Math.min(combo * 12, 120);
+        this.playTone(523.25 + boost, 'triangle', 0.12, 0, 0.15);
+        this.playTone(659.25 + boost, 'triangle', 0.18, 0.07, 0.16);
+      }
+
+      playWrong() {
+        this.playTone(300, 'sine', 0.16, 0, 0.13);
+        this.playTone(250, 'sine', 0.24, 0.12, 0.13);
+      }
+
+      playVictory() {
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((n, idx) => {
+          this.playTone(n, 'triangle', 0.25, idx * 0.11, 0.18);
+        });
+      }
+    }
+
+    const sfx = new SoundEffects();
+
+    /********************************************************************
+     * 2. CHINESE MULTIPLICATION RHYME (九九乘法口诀) & BANK GENERATOR
+     ********************************************************************/
+    const CN_NUM = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+
+    function numToCnProduct(n) {
+      if (n < 10) return '得' + CN_NUM[n];
+      if (n === 10) return '一十';
+      if (n < 20) return '十' + CN_NUM[n % 10];
+      const tens = Math.floor(n / 10);
+      const ones = n % 10;
+      return CN_NUM[tens] + '十' + (ones > 0 ? CN_NUM[ones] : '');
+    }
+
+    function getKoujueInfo(f1, f2) {
+      const m = Math.min(f1, f2);
+      const n = Math.max(f1, f2);
+      const prod = m * n;
+      const prodCn = numToCnProduct(prod);
+      const fullKoujue = `${CN_NUM[m]}${CN_NUM[n]}${prodCn}`;
+      const maskedProductKoujue = `${CN_NUM[m]}${CN_NUM[n]}（ ？ ）`;
+
+      // For division: if dividing by f1, mask f2 in the rhyme
+      let maskedFactorKoujue = '';
+      if (f1 === f2) {
+        maskedFactorKoujue = `${CN_NUM[m]}（ ？ ）${prodCn}`;
+      } else if (f1 === m) {
+        // Known factor is the smaller one (first in rhyme): e.g. 56 ÷ 7 -> 七（ ？ ）五十六
+        maskedFactorKoujue = `${CN_NUM[m]}（ ？ ）${prodCn}`;
+      } else {
+        // Known factor is the larger one (second in rhyme): e.g. 56 ÷ 8 -> （ ？ ）八五十六
+        maskedFactorKoujue = `（ ？ ）${CN_NUM[n]}${prodCn}`;
+      }
+
+      return {
+        m,
+        n,
+        prod,
+        prodCn,
+        fullKoujue,
+        maskedProductKoujue,
+        maskedFactorKoujue
+      };
+    }
+
+    /* ===== 题库：整十/整百乘一位数、整百/几百几十除以一位数、表内除法 ===== */
+    const UNIT_TYPES = new Set(['mul10', 'mul100', 'div10', 'div100', 'div10x']);
+    const UNIT_CAT = {
+      mul10: '整十数乘一位数',
+      mul100: '整百数乘一位数',
+      div10: '整十数除以一位数',
+      div100: '整百数除以一位数',
+      div10x: '几百几十数除以一位数'
+    };
+
+    function mkUnitEq(type, a, op, b, answer) {
+      return {
+        id: `${type}_${a}_${b}`,
+        type: op === '×' ? 'mul' : 'div',
+        subType: type,
+        categoryName: UNIT_CAT[type],
+        a, b, op, answer,
+        display: `${a} ${op} ${b}`
+      };
+    }
+
+    function genPart(key) {
+      const out = [];
+      if (key === 'mul10') {
+        for (let t = 1; t <= 9; t++) for (let b = 2; b <= 9; b++) out.push(mkUnitEq('mul10', t * 10, '×', b, t * 10 * b));
+      } else if (key === 'mul100') {
+        for (let h = 1; h <= 9; h++) for (let b = 2; b <= 9; b++) out.push(mkUnitEq('mul100', h * 100, '×', b, h * 100 * b));
+      } else if (key === 'div10') {
+        // 整十数 ÷ 一位数，商是整十数：30÷3、40÷4、60÷3、80÷2、80÷4、90÷3（20÷4=5 这种商不是整十数的不要）
+        for (let m = 1; m <= 9; m++) for (let d = 2; d <= 9; d++) {
+          if (m % d === 0) out.push(mkUnitEq('div10', m * 10, '÷', d, (m * 10) / d));
+        }
+      } else if (key === 'div100') {
+        // 整百数 ÷ 一位数：只出“一步口诀”能算的
+        //   600÷3：6÷3=2（口诀三二得六）→ 200；300÷6：30÷6=5（口诀五六三十）→ 50
+        for (let h = 1; h <= 9; h++) for (let d = 2; d <= 9; d++) {
+          const byHundred = h % d === 0;
+          const byTen = (10 * h) % d === 0 && (10 * h) / d <= 9;
+          if (byHundred || byTen) out.push(mkUnitEq('div100', h * 100, '÷', d, (h * 100) / d));
+        }
+      } else if (key === 'div10x') {
+        // 几百几十数（十位不为0）÷ 一位数：只出“一步口诀”能算的
+        //   360÷4：36÷4=9（口诀四九三十六）→ 90；840÷4 要拆数，不出
+        for (let m = 11; m <= 99; m++) {
+          if (m % 10 === 0) continue;
+          for (let d = 2; d <= 9; d++) if (m % d === 0 && m / d <= 9) out.push(mkUnitEq('div10x', m * 10, '÷', d, (m * 10) / d));
+        }
+      }
+      return out;
+    }
+
+    const MODE_DEFS = [
+      { key: 'tens_mul', icon: '⭐', name: '模式一：整十、整百数乘一位数',               gens: ['mul10', 'mul100'] },
+      { key: 'big_div',  icon: '➗', name: '模式二：整十、整百、几百几十数除以一位数',    gens: ['div10', 'div100', 'div10x'] },
+      { key: 'grand',    icon: '🏆', name: '模式三：乘除大满贯（乘＋除）',               gens: ['mul10', 'mul100', 'div10', 'div100', 'div10x'] },
+      { key: 'mul10',    icon: '✖️', name: '模式四：只练整十数乘一位数',                 gens: ['mul10'] },
+      { key: 'mul100',   icon: '✖️', name: '模式五：只练整百数乘一位数',                 gens: ['mul100'] },
+      { key: 'div10',    icon: '➗', name: '模式六：只练整十数除以一位数',               gens: ['div10'] },
+      { key: 'div100',   icon: '➗', name: '模式七：只练整百数除以一位数',               gens: ['div100'] },
+      { key: 'div10x',   icon: '➗', name: '模式八：只练几百几十数除以一位数',           gens: ['div10x'] }
+    ];
+
+    function generateQuestionBank(mode) {
+      const def = MODE_DEFS.find(m => m.key === mode) || MODE_DEFS[0];
+      let out = [];
+      def.gens.forEach(g => { out = out.concat(genPart(g)); });
+      return out;
+    }
+
+    // 每轮随机抽题（不重复）；size=0 表示整个题库全部练一遍
+    function sampleBank(mode, size) {
+      const bank = generateQuestionBank(mode);
+      if (!size || size >= bank.length) return bank;
+      return shuffleArray(bank).slice(0, size);
+    }
+
+    function populateModes() {
+      ['modeSelect', 'pkMode'].forEach(id => {
+        const el = document.getElementById(id);
+        el.innerHTML = MODE_DEFS.map(m => `<option value="${m.key}">${m.icon} ${m.name} (${generateQuestionBank(m.key).length}道)</option>`).join('');
+        el.value = MODE_DEFS[0].key;
+      });
+    }
+
+    // Fisher-Yates Unbiased Shuffle
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    /********************************************************************
+     * 3. SMART MATH DECOMPOSITION (乘法口诀 / 想乘算除 / 平均分点阵引擎)
+     ********************************************************************/
+    /* ===== 整十/整百 乘除：想几个十、几个百 的拆解讲解 ===== */
+    function getUnitDecomp(eq, hide) {
+      const { a, b, op, answer } = eq;
+      const A = hide ? '?' : answer;
+      let title, step1, step2, line1, line2, dots;
+
+      if (op === '×') {
+        const unit = a % 100 === 0 ? 100 : 10, un = unit === 100 ? '百' : '十';
+        const n = a / unit, p = n * b, kj = getKoujueInfo(n, b).fullKoujue;
+        title = hide
+          ? `想：${a} 是 ${n} 个${un}，先算 ${n} × ${b}，再想是几个${un}`
+          : `${a} 是 ${n} 个${un}，${n} × ${b} = ${p}，${p} 个${un}就是 ${answer}`;
+        step1 = `${a} 里面有 ${n} 个${un}，先算 ${n} × ${b}，口诀「${kj}」得 ${p}`;
+        step2 = `${p} 个${un}就是 ${p * unit}，所以 ${a} × ${b} = ${A}`;
+        line1 = `${a} = ${n} 个${un}`;
+        line2 = `${n}×${b}=${p}，${p} 个${un} = ${A}`;
+        dots = { kind: 'mul', rows: b, cols: n, un, legend: `${b} 行 × 每行 ${n} 个${un} = ${p} 个${un}` };
+      } else {
+        const D = a, d = b, q = answer;
+        if (D % 100 === 0 && (D / 100) % d === 0) {
+          const n = D / 100, q1 = n / d;
+          title = hide
+            ? `想：${D} 是 ${n} 个百，把 ${n} 个百平均分成 ${d} 份`
+            : `${D} 是 ${n} 个百，${n} ÷ ${d} = ${q1}，${q1} 个百就是 ${q}`;
+          step1 = `${D} 里面有 ${n} 个百，先算 ${n} ÷ ${d}：想 ${d} × ( ${q1} ) = ${n}，口诀「${getKoujueInfo(d, q1).fullKoujue}」`;
+          step2 = `${n} 个百 ÷ ${d} = ${q1} 个百，也就是 ${q}，所以 ${D} ÷ ${d} = ${A}`;
+          line1 = `${D} = ${n} 个百`;
+          line2 = `${n}÷${d}=${q1}，${q1} 个百 = ${A}`;
+          dots = { kind: 'div', total: n, d, un: '百', legend: `共 ${n} 个百，每 ${d} 个一组，分成 ${q1} 组` };
+        } else {
+          const m = D / 10, q10 = q / 10;
+          if (q10 <= 9) {
+            title = hide
+              ? `想：${D} 是 ${m} 个十，把 ${m} 个十平均分成 ${d} 份`
+              : `${D} 是 ${m} 个十，${m} ÷ ${d} = ${q10}，${q10} 个十就是 ${q}`;
+            step1 = `${D} 里面有 ${m} 个十，先算 ${m} ÷ ${d}：想 ${d} × ( ${q10} ) = ${m}，口诀「${getKoujueInfo(d, q10).fullKoujue}」`;
+            step2 = `${m} 个十 ÷ ${d} = ${q10} 个十，也就是 ${q}，所以 ${D} ÷ ${d} = ${A}`;
+            line1 = `${D} = ${m} 个十`;
+            line2 = `${m}÷${d}=${q10}，${q10} 个十 = ${A}`;
+          } else {
+            const x = Math.floor(q10 / 10), y = q10 % 10;
+            const p1 = d * x * 10, p2 = d * y;
+            title = hide
+              ? `想：${D} 是 ${m} 个十，把 ${m} 拆成两个好除的数`
+              : `${D} 是 ${m} 个十，${m} = ${p1} + ${p2}，商是 ${q10} 个十，就是 ${q}`;
+            step1 = `${D} 里面有 ${m} 个十，把 ${m} 拆成 ${p1} 和 ${p2}`;
+            step2 = `${p1} ÷ ${d} = ${x * 10}，${p2} ÷ ${d} = ${y}；${x * 10} + ${y} = ${q10}，${q10} 个十就是 ${q}，所以 ${D} ÷ ${d} = ${A}`;
+            line1 = `${m} = ${p1} + ${p2}`;
+            line2 = `${x * 10}+${y}=${q10} 个十 = ${A}`;
+          }
+          dots = { kind: 'div', total: m, d, un: '十', legend: `共 ${m} 个十，每 ${d} 个一组，分成 ${q10} 组` };
+        }
+      }
+      return { title, svgType: 'unit', a, b, op, answer: A, koujueText: '', step1, step2, line1, line2, dots };
+    }
+
+    function renderUnitSVG(d) {
+      const opColor = d.op === '×' ? '#10b981' : '#f59e0b';
+      return `
+        <svg viewBox="0 0 300 128" class="w-full max-w-[300px] h-auto font-black">
+          <text x="48" y="34" font-size="24" text-anchor="middle" fill="#1e293b">${d.a}</text>
+          <text x="96" y="34" font-size="22" text-anchor="middle" fill="${opColor}">${d.op}</text>
+          <text x="132" y="34" font-size="24" text-anchor="middle" fill="#1e293b">${d.b}</text>
+          <text x="166" y="34" font-size="22" text-anchor="middle" fill="#94a3b8">=</text>
+          <rect x="188" y="10" width="80" height="32" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+          <text x="228" y="33" font-size="22" text-anchor="middle" fill="#047857">${d.answer}</text>
+          <path d="M 228 62 L 228 47" fill="none" stroke="#10b981" stroke-width="2.2" stroke-dasharray="3,2"/>
+          <polygon points="228,45 223,52 233,52" fill="#10b981"/>
+          <rect x="12" y="62" width="276" height="58" rx="12" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+          <text x="150" y="86" font-size="15" text-anchor="middle" fill="#b45309">${d.line1}</text>
+          <text x="150" y="108" font-size="15" text-anchor="middle" fill="#047857">${d.line2}</text>
+        </svg>`;
+    }
+
+    function renderUnitDotsHTML(eq, hideAnswer) {
+      const cfg = getUnitDecomp(eq, false).dots;
+      document.getElementById('tenFrameLegend').innerHTML =
+        `<span class="text-emerald-700 font-bold">${cfg.legend}（每个●表示1个${cfg.un}）</span>`;
+      const col = i => i % 2 === 0 ? 'bg-emerald-500 border-emerald-600' : 'bg-amber-400 border-amber-500';
+      if (cfg.kind === 'mul') {
+        const sz = (cfg.rows >= 8 || cfg.cols >= 8) ? 'w-3 h-3' : (cfg.rows >= 6 || cfg.cols >= 6) ? 'w-3.5 h-3.5' : 'w-4 h-4';
+        let h = '<div class="flex flex-col gap-1 p-2 bg-slate-50 rounded-xl border border-slate-200 max-w-full overflow-x-auto">';
+        for (let r = 0; r < cfg.rows; r++) {
+          h += '<div class="flex items-center justify-center gap-1">';
+          for (let c = 0; c < cfg.cols; c++) h += `<span class="${sz} rounded-full border ${col(r)} inline-block shrink-0"></span>`;
+          h += '</div>';
+        }
+        return h + '</div>';
+      }
+      if (cfg.total > 45) {
+        return '<div class="text-xs text-slate-500 font-bold text-center p-2">数量比较多，用左边的“拆一拆”办法来算更快哦～</div>';
+      }
+      const groups = Math.floor(cfg.total / cfg.d);
+      const sz = cfg.total > 24 ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5';
+      let h = '<div class="flex flex-wrap gap-1.5 justify-center p-2 bg-slate-50 rounded-xl border border-slate-200 max-w-full">';
+      for (let g = 0; g < groups; g++) {
+        h += `<div class="flex items-center gap-0.5 px-1 py-0.5 rounded-lg border ${g % 2 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}">`;
+        for (let k = 0; k < cfg.d; k++) h += `<span class="${sz} rounded-full border ${col(g)} inline-block shrink-0"></span>`;
+        h += '</div>';
+      }
+      return h + '</div>';
+    }
+
+        function getDecompositionData(eq, divMethod = 'koujue', hideAnswer = false) {
+      if (UNIT_TYPES.has(eq.subType)) return getUnitDecomp(eq, hideAnswer);
+      const { a, b, op, answer } = eq;
+      const ansText = hideAnswer ? '?' : answer;
+
+      if (op === '×') {
+        const kj = getKoujueInfo(a, b);
+        return {
+          title: hideAnswer
+            ? `乘法口诀：想口诀「${kj.maskedProductKoujue}」，表示 ${a} 个 ${b} 相加`
+            : `乘法口诀：「${kj.fullKoujue}」，所以 ${a} × ${b} = ${answer}`,
+          svgType: 'mul_bond',
+          a,
+          b,
+          answer: ansText,
+          koujueText: hideAnswer ? kj.maskedProductKoujue : kj.fullKoujue,
+          step1: `第一步：看因数 ${a} 和 ${b}，背诵乘法口诀「${hideAnswer ? kj.maskedProductKoujue : kj.fullKoujue}」`,
+          step2: `第二步：${a} 个 ${b} 相加得 ${ansText}，即 ${a} × ${b} = ${ansText}`
+        };
+      } else {
+        // Division: a ÷ b = answer (where b is divisor, answer is quotient)
+        const kj = getKoujueInfo(b, answer);
+        if (divMethod === 'koujue') {
+          return {
+            title: hideAnswer
+              ? `想乘算除：除以 ${b}，想口诀「${kj.maskedFactorKoujue}」`
+              : `想乘算除：口诀「${kj.fullKoujue}」，所以 ${a} ÷ ${b} = ${answer}`,
+            svgType: 'div_koujue',
+            a,
+            b,
+            answer: ansText,
+            koujueText: hideAnswer ? kj.maskedFactorKoujue : kj.fullKoujue,
+            step1: `第一步：求 ${a} ÷ ${b}，先想 ${b} 乘几等于 ${a}：${b} × ( ${ansText} ) = ${a}`,
+            step2: `第二步：根据口诀「${hideAnswer ? kj.maskedFactorKoujue : kj.fullKoujue}」，得出商是 ${ansText}`
+          };
+        } else {
+          return {
+            title: hideAnswer
+              ? `平均分圈组：把 ${a} 每 ${b} 个圈成 1 组，能圈出几组？`
+              : `平均分圈组：把 ${a} 每 ${b} 个圈 1 组，正好圈出 ${answer} 组`,
+            svgType: 'div_group',
+            a,
+            b,
+            answer: ansText,
+            koujueText: `每行 ${b} 个 · 共 ${ansText} 行`,
+            step1: `第一步：总数是 ${a}，每 ${b} 个分作 1 行（见右侧点阵图）`,
+            step2: `第二步：${a} 里面包含 ${ansText} 个 ${b}，所以 ${a} ÷ ${b} = ${ansText}`
+          };
+        }
+      }
+    }
+
+    // Generate Textbook SVG Diagram (课本口诀枝形图 / 想乘算除推导图)
+    function renderDecompositionSVG(data) {
+      const { svgType, a, b, answer, koujueText } = data;
+      if (svgType === 'unit') return renderUnitSVG(data);
+
+      if (svgType === 'mul_bond') {
+        return `
+          <svg viewBox="0 0 300 128" class="w-full max-w-[300px] h-auto font-black">
+            <!-- 上层：原乘法算式 -->
+            <text x="58" y="34" font-size="24" text-anchor="middle" fill="#1e293b">${a}</text>
+            <text x="98" y="34" font-size="22" text-anchor="middle" fill="#10b981">×</text>
+            <text x="138" y="34" font-size="24" text-anchor="middle" fill="#1e293b">${b}</text>
+            <text x="178" y="34" font-size="22" text-anchor="middle" fill="#94a3b8">=</text>
+            <rect x="202" y="10" width="56" height="32" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+            <text x="230" y="33" font-size="22" text-anchor="middle" fill="#047857">${answer}</text>
+
+            <!-- 两个因数汇聚到口诀框 -->
+            <line x1="58" y1="42" x2="88" y2="68" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="138" y1="42" x2="108" y2="68" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+
+            <!-- 口诀胶囊框 -->
+            <rect x="24" y="68" width="148" height="36" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+            <text x="98" y="92" font-size="16" text-anchor="middle" fill="#b45309">口诀：${koujueText}</text>
+
+            <!-- 引导虚线指向积 -->
+            <path d="M 172 86 L 230 86 L 230 46" fill="none" stroke="#10b981" stroke-width="2.2" stroke-dasharray="3,2"/>
+            <polygon points="230,44 225,51 235,51" fill="#10b981"/>
+          </svg>
+        `;
+      }
+
+      if (svgType === 'div_koujue') {
+        return `
+          <svg viewBox="0 0 300 128" class="w-full max-w-[300px] h-auto font-black">
+            <!-- 上层：原除法算式 -->
+            <text x="58" y="34" font-size="24" text-anchor="middle" fill="#1e293b">${a}</text>
+            <text x="100" y="34" font-size="22" text-anchor="middle" fill="#f59e0b">÷</text>
+            <text x="138" y="34" font-size="24" text-anchor="middle" fill="#1e293b">${b}</text>
+            <text x="178" y="34" font-size="22" text-anchor="middle" fill="#94a3b8">=</text>
+            <rect x="202" y="10" width="56" height="32" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+            <text x="230" y="33" font-size="22" text-anchor="middle" fill="#047857">${answer}</text>
+
+            <!-- 引导虚线箭头 -->
+            <path d="M 230 66 L 230 45" fill="none" stroke="#10b981" stroke-width="2.2" stroke-dasharray="3,2"/>
+            <polygon points="230,43 225,50 235,50" fill="#10b981"/>
+
+            <!-- 下层：想乘算除提示框 -->
+            <rect x="14" y="66" width="272" height="48" rx="12" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+            <text x="150" y="96" font-size="16" text-anchor="middle" fill="#b45309">
+              想：${b} × ( <tspan fill="#047857" font-size="19">${answer}</tspan> ) = ${a} · ${koujueText}
+            </text>
+          </svg>
+        `;
+      }
+
+      // div_group
+      return `
+        <svg viewBox="0 0 300 125" class="w-full max-w-[300px] h-auto font-black">
+          <text x="58" y="34" font-size="24" text-anchor="middle" fill="#1e293b">${a}</text>
+          <text x="100" y="34" font-size="22" text-anchor="middle" fill="#f59e0b">÷</text>
+          <text x="138" y="34" font-size="24" text-anchor="middle" fill="#1e293b">${b}</text>
+          <text x="178" y="34" font-size="22" text-anchor="middle" fill="#94a3b8">=</text>
+          <rect x="202" y="10" width="56" height="32" rx="8" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+          <text x="230" y="33" font-size="22" text-anchor="middle" fill="#047857">${answer}</text>
+
+          <rect x="16" y="64" width="268" height="46" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+          <text x="150" y="93" font-size="16" text-anchor="middle" fill="#047857">
+            总数 ${a} ÷ 每行 ${b} 个 = 共 ${answer} 行
+          </text>
+        </svg>
+      `;
+    }
+
+    // Render Visual Row x Column Dot Array (直观行列点阵图)
+    function renderArrayGridHTML(eq, hideAnswer = false) {
+      if (UNIT_TYPES.has(eq.subType)) return renderUnitDotsHTML(eq, hideAnswer);
+      const { a, b, op, answer } = eq;
+      const legendEl = document.getElementById('tenFrameLegend');
+
+      // For a × b = c: rows = a, cols = b
+      // For c ÷ b = a: rows = answer (quotient), cols = b (divisor)
+      const rows = op === '×' ? a : answer;
+      const cols = b;
+      const total = op === '×' ? answer : a;
+
+      if (op === '×') {
+        legendEl.innerHTML = `<span class="text-emerald-700 font-bold">${rows}行 × 每行${cols}个 = ${hideAnswer ? '?' : total}</span>`;
+      } else {
+        legendEl.innerHTML = `<span class="text-amber-700 font-bold">共${total}个 · 每${cols}个1行 ➔ ${hideAnswer ? '?' : rows}行</span>`;
+      }
+
+      // Adaptive dot size so even 9x9 fits cleanly inside the card
+      const dotSize = (rows >= 8 || cols >= 8) ? 'w-3 h-3' : (rows >= 6 || cols >= 6) ? 'w-3.5 h-3.5' : 'w-4 h-4';
+
+      let html = `<div class="flex flex-col gap-1 p-2 bg-slate-50 rounded-xl border border-slate-200 max-w-full overflow-x-auto">`;
+      for (let r = 0; r < rows; r++) {
+        const isEvenRow = r % 2 === 0;
+        const rowBg = op === '÷'
+          ? (isEvenRow ? 'bg-amber-50/90 border-amber-200' : 'bg-emerald-50/90 border-emerald-200')
+          : 'border-transparent';
+        const dotColor = isEvenRow
+          ? 'bg-emerald-500 border-emerald-600'
+          : 'bg-amber-400 border-amber-500';
+
+        html += `<div class="flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-lg border ${rowBg}">`;
+        for (let c = 0; c < cols; c++) {
+          html += `<span class="${dotSize} rounded-full border ${dotColor} inline-block shrink-0"></span>`;
+        }
+        html += `<span class="ml-1 text-[10px] font-extrabold text-slate-400 tabular-nums">${r + 1}</span>`;
+        html += `</div>`;
+      }
+      html += `</div>`;
+      return html;
+    }
+
+    /********************************************************************
+     * 4. APPLICATION STATE & GAME LOOP CONTROLLER
+     ********************************************************************/
+    const state = {
+      mode: 'tens_mul',
+      size: 30,
+      allEquations: [],
+      statusMap: new Map(),
+      queue: [],
+      currentEq: null,
+      userInput: '',
+      autoSubmit: true,
+      awaitingNextAfterWrong: false,
+      subHintMethod: 'koujue',
+      matrixFilter: 'all',
+
+      // Stats
+      combo: 0,
+      maxCombo: 0,
+      firstTryCorrectCount: 0,
+      mistakeSet: new Set(),
+      secondsElapsed: 0,
+      timerInterval: null,
+      isTransitioning: false
+    };
+
+    // DOM References
+    const dom = {
+      modeSelect: document.getElementById('modeSelect'),
+      btnResetRound: document.getElementById('btnResetRound'),
+      btnSoundToggle: document.getElementById('btnSoundToggle'),
+      btnMatrixJumpMobile: document.getElementById('btnMatrixJumpMobile'),
+      btnJumpWrongBook: document.getElementById('btnJumpWrongBook'),
+      matrixSection: document.getElementById('matrixSection'),
+      iconSoundOn: document.getElementById('iconSoundOn'),
+      iconSoundOff: document.getElementById('iconSoundOff'),
+      progressText: document.getElementById('progressText'),
+      progressBar: document.getElementById('progressBar'),
+      queueRemainBadge: document.getElementById('queueRemainBadge'),
+      comboCount: document.getElementById('comboCount'),
+      mistakeCount: document.getElementById('mistakeCount'),
+      timerText: document.getElementById('timerText'),
+
+      questionCard: document.getElementById('questionCard'),
+      eqCategoryBadge: document.getElementById('eqCategoryBadge'),
+      retryTag: document.getElementById('retryTag'),
+      btnShowHint: document.getElementById('btnShowHint'),
+      numA: document.getElementById('numA'),
+      opSign: document.getElementById('opSign'),
+      numB: document.getElementById('numB'),
+      answerBox: document.getElementById('answerBox'),
+      userInputText: document.getElementById('userInputText'),
+
+      feedbackBanner: document.getElementById('feedbackBanner'),
+      feedbackMessage: document.getElementById('feedbackMessage'),
+      btnNextAfterWrong: document.getElementById('btnNextAfterWrong'),
+
+      hintPanel: document.getElementById('hintPanel'),
+      hintHeaderRow: document.getElementById('hintHeaderRow'),
+      hintDetailBody: document.getElementById('hintDetailBody'),
+      hintTitle: document.getElementById('hintTitle'),
+      subMethodTabs: document.getElementById('subMethodTabs'),
+      hintSvgContainer: document.getElementById('hintSvgContainer'),
+      hintStepsText: document.getElementById('hintStepsText'),
+      tenFrameContainer: document.getElementById('tenFrameContainer'),
+
+      btnModeAuto: document.getElementById('btnModeAuto'),
+      btnModeManual: document.getElementById('btnModeManual'),
+
+      matrixTotalBadge: document.getElementById('matrixTotalBadge'),
+      legendPending: document.getElementById('legendPending'),
+      legendMastered: document.getElementById('legendMastered'),
+      legendRetry: document.getElementById('legendRetry'),
+      matrixContainer: document.getElementById('matrixContainer'),
+
+      inspectModal: document.getElementById('inspectModal'),
+      inspectTitle: document.getElementById('inspectTitle'),
+      inspectBody: document.getElementById('inspectBody'),
+      btnCloseInspect: document.getElementById('btnCloseInspect'),
+      btnCloseInspectBottom: document.getElementById('btnCloseInspectBottom'),
+
+      victoryModal: document.getElementById('victoryModal'),
+      btnCloseVictory: document.getElementById('btnCloseVictory'),
+      victorySubtitle: document.getElementById('victorySubtitle'),
+      vicAccuracy: document.getElementById('vicAccuracy'),
+      vicTime: document.getElementById('vicTime'),
+      vicMaxCombo: document.getElementById('vicMaxCombo'),
+      vicMistakeBadge: document.getElementById('vicMistakeBadge'),
+      vicMistakeList: document.getElementById('vicMistakeList'),
+      btnRetryMistakesOnly: document.getElementById('btnRetryMistakesOnly'),
+      btnRetryMistakesCount: document.getElementById('btnRetryMistakesCount'),
+      btnPlayAgainFull: document.getElementById('btnPlayAgainFull')
+    };
+
+    function startRound(customEquations = null) {
+      stopTimer();
+      state.secondsElapsed = 0;
+      updateTimerDisplay();
+      startTimer();
+
+      state.allEquations = customEquations ? [...customEquations] : generateQuestionBank(state.mode);
+      state.statusMap.clear();
+      state.allEquations.forEach(eq => {
+        state.statusMap.set(eq.id, { status: 'pending', wrongCount: 0 });
+      });
+
+      state.queue = shuffleArray(state.allEquations);
+      state.combo = 0;
+      state.maxCombo = 0;
+      state.firstTryCorrectCount = 0;
+      state.mistakeSet.clear();
+      state.userInput = '';
+      state.awaitingNextAfterWrong = false;
+      state.isTransitioning = false;
+
+      dom.victoryModal.classList.add('hidden');
+      dom.victoryModal.classList.remove('flex');
+
+      loadNextQuestion();
+      updateHeaderAndProgress();
+      renderMatrix();
+    }
+
+    function loadNextQuestion() {
+      if (state.queue.length === 0) {
+        triggerVictory();
+        return;
+      }
+
+      state.currentEq = state.queue[0];
+      state.userInput = '';
+      state.awaitingNextAfterWrong = false;
+      state.isTransitioning = false;
+
+      const eq = state.currentEq;
+      const st = state.statusMap.get(eq.id);
+
+      dom.numA.textContent = eq.a;
+      dom.opSign.textContent = eq.op;
+      dom.opSign.className = eq.op === '×' ? 'text-emerald-600' : 'text-amber-600';
+      dom.numB.textContent = eq.b;
+      dom.eqCategoryBadge.textContent = eq.categoryName;
+      dom.eqCategoryBadge.className = eq.op === '×'
+        ? 'px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800'
+        : 'px-3 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-800';
+
+      if (st && st.wrongCount > 0) {
+        dom.retryTag.classList.remove('hidden');
+      } else {
+        dom.retryTag.classList.add('hidden');
+      }
+
+      resetSubHintMethod();
+      resetAnswerBoxStyle();
+      dom.feedbackBanner.classList.add('hidden');
+      dom.btnNextAfterWrong.classList.add('hidden');
+      dom.hintPanel.classList.add('hidden');
+
+      renderMatrix();
+    }
+
+    function resetAnswerBoxStyle() {
+      dom.userInputText.textContent = state.userInput === '' ? '?' : state.userInput;
+      dom.answerBox.className = state.userInput === ''
+        ? 'min-w-[82px] sm:min-w-[116px] h-14 sm:h-20 px-3 sm:px-4 rounded-2xl bg-white border-4 border-emerald-400 shadow-inner flex items-center justify-center text-slate-300 transition-all'
+        : 'min-w-[82px] sm:min-w-[116px] h-14 sm:h-20 px-3 sm:px-4 rounded-2xl bg-white border-4 border-emerald-500 shadow-inner flex items-center justify-center text-emerald-700 transition-all';
+    }
+
+    function handleDigitInput(digitStr) {
+      if (state.isTransitioning || !state.currentEq) return;
+
+      if (state.userInput.length >= 4) {
+        state.userInput = digitStr;
+      } else {
+        state.userInput += digitStr;
+      }
+      sfx.playKeyClick();
+      resetAnswerBoxStyle();
+
+      const expectedStr = String(state.currentEq.answer);
+
+      if (state.autoSubmit) {
+        // Smart auto-submit: if expected is 1 digit and user types '1' when answer != 1, wait in case they are typing a 2-digit number (e.g. 12, 16)
+        if (expectedStr.length >= 2) {
+          if (state.userInput.length === expectedStr.length) submitAnswer();
+        } else if (state.userInput.length === expectedStr.length && (state.userInput !== '1' || state.currentEq.answer === 1)) {
+          submitAnswer();
+        } else if (state.userInput.length === 2) {
+          submitAnswer();
+        }
+      }
+    }
+
+    function handleBackspace() {
+      if (state.isTransitioning || !state.currentEq) return;
+      if (state.userInput.length > 0) {
+        state.userInput = state.userInput.slice(0, -1);
+        sfx.playKeyClick();
+        resetAnswerBoxStyle();
+      }
+    }
+
+    function submitAnswer() {
+      if (state.isTransitioning || !state.currentEq) return;
+
+      if (state.awaitingNextAfterWrong && state.userInput === '') {
+        advanceAfterWrong();
+        return;
+      }
+
+      if (state.userInput === '') return;
+
+      const numVal = parseInt(state.userInput, 10);
+      const eq = state.currentEq;
+      const st = state.statusMap.get(eq.id);
+
+      if (numVal === eq.answer) {
+        if (state.awaitingNextAfterWrong) {
+          sfx.playCorrect(1);
+          dom.answerBox.className = 'min-w-[82px] sm:min-w-[116px] h-14 sm:h-20 px-3 sm:px-4 rounded-2xl bg-emerald-50 border-4 border-emerald-500 flex items-center justify-center text-emerald-700 animate-pop';
+          state.isTransitioning = true;
+          setTimeout(() => {
+            advanceAfterWrong();
+          }, 280);
+          return;
+        }
+
+        state.isTransitioning = true;
+        state.queue.shift();
+
+        if (st.wrongCount === 0) {
+          st.status = 'mastered_first';
+          state.firstTryCorrectCount++;
+        } else {
+          st.status = 'mastered_retry';
+        }
+
+        state.combo++;
+        if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+
+        sfx.playCorrect(state.combo);
+        dom.answerBox.className = 'min-w-[82px] sm:min-w-[116px] h-14 sm:h-20 px-3 sm:px-4 rounded-2xl bg-emerald-100 border-4 border-emerald-500 flex items-center justify-center text-emerald-700 animate-pop';
+        dom.questionCard.classList.add('animate-pop');
+        setTimeout(() => dom.questionCard.classList.remove('animate-pop'), 300);
+
+        showFeedbackBanner(true, `🎉 太棒啦！${eq.display} = ${eq.answer} 答对掌握！`);
+        updateHeaderAndProgress();
+        renderMatrix();
+
+        setTimeout(() => {
+          loadNextQuestion();
+        }, 320);
+
+      } else {
+        sfx.playWrong();
+        state.combo = 0;
+
+        if (!state.awaitingNextAfterWrong) {
+          st.wrongCount++;
+          st.status = 'retrying';
+          state.mistakeSet.add(eq.id);
+
+          const missedEq = state.queue.shift();
+          state.queue.push(missedEq);
+          state.awaitingNextAfterWrong = true;
+        }
+        resetSubHintMethod();
+
+        dom.answerBox.className = 'min-w-[82px] sm:min-w-[116px] h-14 sm:h-20 px-3 sm:px-4 rounded-2xl bg-rose-50 border-4 border-rose-400 flex items-center justify-center text-rose-600 animate-shake';
+        setTimeout(() => dom.answerBox.classList.remove('animate-shake'), 450);
+
+        showFeedbackBanner(
+          false,
+          `💡 刚才填的是 ${numVal}，正确结果是 ${eq.answer}。看看下方图解，输入 ${eq.answer} 或点下方按钮继续！`
+        );
+        dom.btnNextAfterWrong.classList.remove('hidden');
+
+        state.userInput = '';
+        updateHeaderAndProgress();
+        renderHintPanel(eq);
+        renderMatrix();
+      }
+    }
+
+    function advanceAfterWrong() {
+      state.awaitingNextAfterWrong = false;
+      loadNextQuestion();
+    }
+
+    function showFeedbackBanner(isCorrect, text) {
+      dom.feedbackBanner.classList.remove('hidden');
+      dom.feedbackMessage.className = 'flex items-center gap-2 w-full';
+      if (isCorrect) {
+        dom.feedbackBanner.className = 'rounded-2xl px-3.5 py-2.5 sm:px-4 mb-3 text-sm font-extrabold flex items-center justify-between gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200';
+      } else {
+        dom.feedbackBanner.className = 'rounded-2xl px-3.5 py-2.5 sm:px-4 mb-3 text-xs sm:text-sm font-extrabold flex flex-col items-stretch sm:items-start gap-2 bg-amber-50 text-amber-900 border-2 border-amber-300';
+      }
+      dom.feedbackMessage.innerHTML = `<span>${text}</span>`;
+    }
+
+    function resetSubHintMethod() {
+      state.subHintMethod = 'koujue';
+      document.querySelectorAll('.sub-method-btn').forEach(b => {
+        b.className = b.getAttribute('data-method') === 'koujue'
+          ? 'sub-method-btn px-2.5 py-1 rounded-lg bg-amber-500 text-white transition'
+          : 'sub-method-btn px-2.5 py-1 rounded-lg text-slate-600 hover:bg-amber-50 transition';
+      });
+    }
+
+    function renderHintPanel(eq) {
+      dom.hintPanel.classList.remove('hidden');
+
+      const isWrongReview = state.awaitingNextAfterWrong;
+      const data = getDecompositionData(eq, state.subHintMethod, !isWrongReview);
+      dom.hintTitle.textContent = data.title;
+
+      if (!isWrongReview) {
+        // 答题时点开提示：仅显示一行口诀提示，不泄露得数与下方完整过程
+        dom.hintPanel.className = 'mt-2 mb-3 rounded-2xl bg-amber-50/90 border-2 border-amber-200 px-3.5 py-2.5 sm:px-4 sm:py-3 transition-all';
+        dom.hintHeaderRow.className = 'flex items-center justify-between gap-2';
+        dom.subMethodTabs.classList.add('hidden');
+        dom.hintDetailBody.classList.add('hidden');
+        dom.hintDetailBody.classList.remove('grid');
+      } else {
+        // 答错时：显示顶部口诀文字 + 下方完整推导图、分步算式与行列点阵图
+        dom.hintPanel.className = 'mt-2 mb-3 rounded-2xl bg-amber-50/90 border-2 border-amber-200 p-3.5 sm:p-4 transition-all';
+        dom.hintHeaderRow.className = 'flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-3 border-b border-amber-200/70';
+        if (eq.op === '÷' && !UNIT_TYPES.has(eq.subType)) {
+          dom.subMethodTabs.classList.remove('hidden');
+        } else {
+          dom.subMethodTabs.classList.add('hidden');
+        }
+        dom.hintDetailBody.classList.remove('hidden');
+        dom.hintDetailBody.classList.add('grid');
+
+        dom.hintSvgContainer.innerHTML = renderDecompositionSVG(data);
+        dom.hintStepsText.innerHTML = `
+          <div class="flex items-start gap-1.5 text-emerald-800">
+            <span class="px-1.5 py-0.2 bg-emerald-100 rounded text-xs">1</span>
+            <span>${data.step1}</span>
+          </div>
+          <div class="flex items-start gap-1.5 text-amber-900 mt-1">
+            <span class="px-1.5 py-0.2 bg-amber-100 rounded text-xs">2</span>
+            <span>${data.step2}</span>
+          </div>
+        `;
+        dom.tenFrameContainer.innerHTML = renderArrayGridHTML(eq, false);
+      }
+    }
+
+    /********************************************************************
+     * 5. PROGRESS & REAL-TIME MATRIX RENDERING (算式全图鉴打卡矩阵)
+     ********************************************************************/
+    function updateHeaderAndProgress() {
+      const total = state.allEquations.length;
+      let pendingCount = 0;
+      let masteredFirstCount = 0;
+      let retryOrCorrectedCount = 0;
+
+      state.statusMap.forEach((val) => {
+        if (val.status === 'pending') pendingCount++;
+        else if (val.status === 'mastered_first') masteredFirstCount++;
+        else retryOrCorrectedCount++;
+      });
+
+      const masteredTotal = total - state.queue.length;
+      const pct = total > 0 ? Math.round((masteredTotal / total) * 100) : 0;
+
+      dom.progressText.textContent = `${masteredTotal} / ${total}`;
+      dom.progressBar.style.width = `${pct}%`;
+      dom.queueRemainBadge.textContent = `待练 ${state.queue.length}`;
+
+      dom.comboCount.textContent = state.combo;
+      dom.mistakeCount.textContent = state.mistakeSet.size;
+      dom.matrixTotalBadge.textContent = `共 ${total} 道`;
+
+      dom.legendPending.textContent = pendingCount;
+      dom.legendMastered.textContent = masteredFirstCount;
+      dom.legendRetry.textContent = retryOrCorrectedCount;
+    }
+
+    function renderMatrix() {
+      const filter = state.matrixFilter;
+      let filtered = state.allEquations.filter(eq => {
+        if (filter === 'mul') return eq.op === '×';
+        if (filter === 'div') return eq.op === '÷';
+        if (filter === 'wrong') {
+          const st = state.statusMap.get(eq.id);
+          return st && st.wrongCount > 0;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        dom.matrixContainer.innerHTML = `
+          <div class="py-12 text-center text-slate-400 text-xs font-bold">
+            ${filter === 'wrong' ? '🎉 太棒啦！目前错题本是空的，继续保持哦！' : '暂无算式'}
+          </div>
+        `;
+        return;
+      }
+
+      const muls = filtered.filter(e => e.op === '×');
+      const divs = filtered.filter(e => e.op === '÷');
+
+      let html = '';
+
+      const renderSection = (title, list, badgeColor) => {
+        if (list.length === 0) return '';
+        let secHtml = `
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-extrabold px-2.5 py-0.5 rounded-lg ${badgeColor}">${title} (${list.length}道)</span>
+            </div>
+            <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-3 xl:grid-cols-4 gap-1.5">
+        `;
+
+        list.forEach(eq => {
+          const st = state.statusMap.get(eq.id);
+          const isCurrent = state.currentEq && state.currentEq.id === eq.id && state.queue.length > 0;
+
+          let cellCls = 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200/70';
+          let statusIcon = '';
+          let showAnswer = false;
+
+          if (st.status === 'mastered_first') {
+            cellCls = 'bg-emerald-500 text-white border-emerald-600 shadow-xs';
+            statusIcon = '✓';
+            showAnswer = true;
+          } else if (st.status === 'retrying') {
+            cellCls = 'bg-amber-100 text-amber-900 border-amber-400 pulse-retry font-black';
+            statusIcon = '↻';
+          } else if (st.status === 'mastered_retry') {
+            cellCls = 'bg-amber-500 text-white border-amber-600 shadow-xs';
+            statusIcon = '✓';
+            showAnswer = true;
+          }
+
+          if (isCurrent) {
+            cellCls += ' ring-2 ring-sky-500 ring-offset-1';
+          }
+
+          secHtml += `
+            <button data-eqid="${eq.id}" class="matrix-cell px-1.5 py-1.5 rounded-xl border text-[11px] font-extrabold tabular-nums flex items-center justify-between transition cursor-pointer ${cellCls}" title="点击查看 ${eq.display} 口诀法">
+              <span>${eq.a}${eq.op}${eq.b}${showAnswer ? '=' + eq.answer : ''}</span>
+              <span class="text-[10px] opacity-90">${isCurrent ? '👈' : statusIcon}</span>
+            </button>
+          `;
+        });
+
+        secHtml += `</div></div>`;
+        return secHtml;
+      };
+
+      html += renderSection('✖️ 乘法算式', muls, 'bg-emerald-50 text-emerald-800');
+      html += renderSection('➗ 除法算式', divs, 'bg-amber-50 text-amber-800');
+
+      dom.matrixContainer.innerHTML = html;
+
+      dom.matrixContainer.querySelectorAll('.matrix-cell').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const eqId = btn.getAttribute('data-eqid');
+          const targetEq = state.allEquations.find(e => e.id === eqId);
+          if (!targetEq) return;
+
+          if (state.currentEq && state.currentEq.id === targetEq.id) {
+            renderHintPanel(targetEq);
+            return;
+          }
+          openInspectModal(targetEq);
+        });
+      });
+    }
+
+    function openInspectModal(eq) {
+      const st = state.statusMap.get(eq.id);
+      const isMastered = st && (st.status === 'mastered_first' || st.status === 'mastered_retry');
+      const hideAnswer = !isMastered;
+      const data = getDecompositionData(eq, 'koujue', hideAnswer);
+      let badgeHtml = '<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-xs">待练习</span>';
+      if (st.status === 'mastered_first') {
+        badgeHtml = '<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-xs">一次答对已掌握 ✓</span>';
+      } else if (st.status === 'retrying') {
+        badgeHtml = `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-xs">待回炉巩固 (曾错${st.wrongCount}次)</span>`;
+      } else if (st.status === 'mastered_retry') {
+        badgeHtml = `<span class="px-2 py-0.5 rounded bg-amber-500 text-white text-xs">已订正掌握 ✓ (曾错${st.wrongCount}次)</span>`;
+      }
+
+      dom.inspectTitle.innerHTML = `${eq.display} = ${hideAnswer ? '?' : eq.answer} ${badgeHtml}`;
+      if (hideAnswer) {
+        dom.inspectBody.innerHTML = `
+          <div class="text-sm font-extrabold text-amber-900 bg-amber-50 px-3.5 py-3 rounded-xl border border-amber-200 flex items-center gap-2">
+            <span>🎓</span>
+            <span>${data.title}</span>
+          </div>
+          <div class="text-xs text-slate-400 text-center pt-1">
+            （该算式尚未答对掌握，暂隐藏详细推导过程与得数）
+          </div>
+        `;
+      } else {
+        dom.inspectBody.innerHTML = `
+          <div class="text-xs font-extrabold text-amber-800 bg-amber-50 px-3 py-2 rounded-xl border border-amber-200">
+            🎓 ${data.title}
+          </div>
+          <div class="flex justify-center bg-slate-50 rounded-2xl p-3 border border-slate-200">
+            ${renderDecompositionSVG(data)}
+          </div>
+          <div class="space-y-1.5 text-xs font-bold text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <div>1️⃣ ${data.step1}</div>
+            <div>2️⃣ ${data.step2}</div>
+          </div>
+        `;
+      }
+      dom.inspectModal.classList.remove('hidden');
+      dom.inspectModal.classList.add('flex');
+    }
+
+    /********************************************************************
+     * 6. TIMER & VICTORY SETTLEMENT + CONFETTI
+     ********************************************************************/
+    function startTimer() {
+      state.timerInterval = setInterval(() => {
+        state.secondsElapsed++;
+        updateTimerDisplay();
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (state.timerInterval) {
+        clearInterval(state.timerInterval);
+        state.timerInterval = null;
+      }
+    }
+
+    function formatTime(sec) {
+      const m = String(Math.floor(sec / 60)).padStart(2, '0');
+      const s = String(sec % 60).padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function updateTimerDisplay() {
+      dom.timerText.textContent = formatTime(state.secondsElapsed);
+    }
+
+    function closeVictoryModal() {
+      dom.victoryModal.classList.add('hidden');
+      dom.victoryModal.classList.remove('flex');
+    }
+
+    function openVictoryModal() {
+      dom.victoryModal.classList.remove('hidden');
+      dom.victoryModal.classList.add('flex');
+    }
+
+    function triggerVictory() {
+      stopTimer();
+      state.currentEq = null;
+      state.isTransitioning = false;
+      sfx.playVictory();
+      launchConfetti();
+
+      const total = state.allEquations.length;
+      const acc = total > 0 ? Math.round((state.firstTryCorrectCount / total) * 100) : 100;
+
+      renderMatrix();
+      dom.feedbackBanner.classList.remove('hidden');
+      dom.feedbackBanner.className = 'rounded-2xl p-3 sm:px-4 sm:py-3 mb-3 bg-gradient-to-br from-emerald-50 via-teal-50/70 to-emerald-50 border-2 border-emerald-300/90 shadow-xs';
+      dom.feedbackMessage.className = 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 w-full';
+      dom.feedbackMessage.innerHTML = `
+        <div class="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2.5 flex-nowrap w-full sm:w-auto">
+          <div class="flex items-center gap-1.5 text-emerald-950 font-black text-xs sm:text-sm whitespace-nowrap shrink-0">
+            <span class="w-6 h-6 rounded-lg bg-amber-100 border border-amber-300/80 flex items-center justify-center text-xs shadow-2xs shrink-0">🏆</span>
+            <span>全部通关</span>
+          </div>
+          <div class="flex items-center gap-1 sm:gap-1.5 text-[11px] sm:text-xs font-extrabold shrink-0">
+            <span class="px-2 py-0.5 rounded-lg bg-white/95 text-sky-700 border border-emerald-200/90 tabular-nums whitespace-nowrap shadow-2xs">⏱️ ${formatTime(state.secondsElapsed)}</span>
+            <span class="px-2 py-0.5 rounded-lg bg-white/95 text-emerald-700 border border-emerald-200/90 tabular-nums whitespace-nowrap shadow-2xs">🎯 正确率 ${acc}%</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto shrink-0">
+          <button onclick="openVictoryModal()" class="flex-1 sm:flex-initial py-2 sm:py-1.5 px-3 rounded-xl bg-white hover:bg-emerald-50 active:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-extrabold shadow-2xs flex items-center justify-center gap-1 transition cursor-pointer">
+            <span>📊</span><span>查看成绩单</span>
+          </button>
+          <button onclick="startRound()" class="flex-1 sm:flex-initial py-2 sm:py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-extrabold shadow-xs flex items-center justify-center gap-1 transition cursor-pointer">
+            <span>🎲</span><span>再来一轮</span>
+          </button>
+        </div>
+      `;
+      dom.btnNextAfterWrong.classList.add('hidden');
+
+      dom.vicAccuracy.textContent = `${acc}%`;
+      dom.vicTime.textContent = formatTime(state.secondsElapsed);
+      dom.vicMaxCombo.textContent = state.maxCombo;
+
+      const missedEquations = state.allEquations.filter(eq => state.mistakeSet.has(eq.id));
+      dom.vicMistakeBadge.textContent = `${missedEquations.length}道`;
+
+      if (missedEquations.length === 0) {
+        dom.vicMistakeList.innerHTML = `
+          <div class="py-6 text-center text-emerald-700 font-extrabold text-sm">
+            🌟 零失误一次全对通关！真正的口算小达人！
+          </div>
+        `;
+        dom.btnRetryMistakesOnly.classList.add('hidden');
+      } else {
+        dom.vicMistakeList.innerHTML = missedEquations.map(eq => {
+          const st = state.statusMap.get(eq.id);
+          const tip = getDecompositionData(eq, 'koujue', false);
+          return `
+            <div class="bg-white p-2.5 rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <div class="font-black text-slate-800 text-sm tabular-nums">
+                ${eq.display} = <span class="text-emerald-600">${eq.answer}</span>
+                <span class="ml-1.5 text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">曾错 ${st.wrongCount} 次 · 已订正✓</span>
+              </div>
+              <div class="text-[11px] text-slate-500 font-bold">${tip.step1}，${tip.step2}</div>
+            </div>
+          `;
+        }).join('');
+
+        dom.btnRetryMistakesOnly.classList.remove('hidden');
+        dom.btnRetryMistakesCount.textContent = `(${missedEquations.length}道)`;
+      }
+
+      dom.victoryModal.classList.remove('hidden');
+      dom.victoryModal.classList.add('flex');
+    }
+
+    function launchConfetti() {
+      const canvas = document.getElementById('confettiCanvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const pieces = Array.from({ length: 90 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height - canvas.height,
+        w: 8 + Math.random() * 6,
+        h: 10 + Math.random() * 8,
+        color: ['#10b981', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'][Math.floor(Math.random() * 5)],
+        vy: 2.5 + Math.random() * 3.5,
+        vx: (Math.random() - 0.5) * 2,
+        rot: Math.random() * 360,
+        vRot: (Math.random() - 0.5) * 8
+      }));
+
+      let frames = 0;
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+          p.y += p.vy;
+          p.x += p.vx;
+          p.rot += p.vRot;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate((p.rot * Math.PI) / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          ctx.restore();
+        });
+        frames++;
+        if (frames < 180) {
+          requestAnimationFrame(draw);
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+      requestAnimationFrame(draw);
+    }
+
+    /********************************************************************
+     * 7. EVENT LISTENERS (Touch, Mouse & Physical Keyboard)
+     ********************************************************************/
+    function bindEvents() {
+      dom.modeSelect.addEventListener('change', (e) => {
+        state.mode = e.target.value;
+        startRound();
+      });
+
+      dom.btnResetRound.addEventListener('click', () => startRound());
+
+      const toggleSound = () => {
+        sfx.enabled = !sfx.enabled;
+        document.querySelectorAll('.icon-sound-on').forEach(el => el.classList.toggle('hidden', !sfx.enabled));
+        document.querySelectorAll('.icon-sound-off').forEach(el => el.classList.toggle('hidden', sfx.enabled));
+        if (sfx.enabled) sfx.playKeyClick();
+      };
+      dom.btnSoundToggle.addEventListener('click', toggleSound);
+
+      if (dom.btnMatrixJumpMobile && dom.matrixSection) {
+        dom.btnMatrixJumpMobile.addEventListener('click', () => {
+          dom.matrixSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+
+      if (dom.btnJumpWrongBook && dom.matrixSection) {
+        dom.btnJumpWrongBook.addEventListener('click', () => {
+          const wrongTabBtn = document.querySelector('.matrix-tab[data-tab="wrong"]');
+          if (wrongTabBtn) wrongTabBtn.click();
+          dom.matrixSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+
+      dom.btnShowHint.addEventListener('click', () => {
+        if (!state.currentEq) return;
+        const isHidden = dom.hintPanel.classList.contains('hidden');
+        if (isHidden) {
+          resetSubHintMethod();
+          renderHintPanel(state.currentEq);
+        } else {
+          dom.hintPanel.classList.add('hidden');
+        }
+      });
+
+      document.querySelectorAll('.sub-method-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.subHintMethod = btn.getAttribute('data-method');
+          document.querySelectorAll('.sub-method-btn').forEach(b => {
+            b.className = b === btn
+              ? 'sub-method-btn px-2.5 py-1 rounded-lg bg-amber-500 text-white transition'
+              : 'sub-method-btn px-2.5 py-1 rounded-lg text-slate-600 hover:bg-amber-50 transition';
+          });
+          if (state.currentEq) renderHintPanel(state.currentEq);
+        });
+      });
+
+      dom.btnNextAfterWrong.addEventListener('click', () => {
+        advanceAfterWrong();
+      });
+
+      dom.btnModeAuto.addEventListener('click', () => {
+        state.autoSubmit = true;
+        dom.btnModeAuto.className = 'flex-1 md:flex-initial px-3 py-1 rounded-lg font-extrabold bg-white text-emerald-700 shadow-xs transition';
+        dom.btnModeManual.className = 'flex-1 md:flex-initial px-3 py-1 rounded-lg font-bold text-slate-600 hover:text-slate-900 transition';
+      });
+      dom.btnModeManual.addEventListener('click', () => {
+        state.autoSubmit = false;
+        dom.btnModeManual.className = 'flex-1 md:flex-initial px-3 py-1 rounded-lg font-extrabold bg-white text-emerald-700 shadow-xs transition';
+        dom.btnModeAuto.className = 'flex-1 md:flex-initial px-3 py-1 rounded-lg font-bold text-slate-600 hover:text-slate-900 transition';
+      });
+
+      document.querySelectorAll('.numpad-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const key = btn.getAttribute('data-key');
+          if (key === 'backspace') handleBackspace();
+          else if (key === 'enter') submitAnswer();
+          else handleDigitInput(key);
+        });
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (typeof pk !== 'undefined' && pk.active) return; // PK模式自行处理键盘
+        if (!dom.victoryModal.classList.contains('hidden')) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            closeVictoryModal();
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            startRound();
+          }
+          return;
+        }
+        if (!dom.inspectModal.classList.contains('hidden')) {
+          if (e.key === 'Escape' || e.key === 'Enter') {
+            dom.inspectModal.classList.add('hidden');
+            dom.inspectModal.classList.remove('flex');
+          }
+          return;
+        }
+
+        if (e.key >= '0' && e.key <= '9') {
+          e.preventDefault();
+          highlightKeyButton(e.key);
+          handleDigitInput(e.key);
+        } else if (e.key === 'Backspace' || e.key === 'Delete') {
+          e.preventDefault();
+          highlightKeyButton('backspace');
+          handleBackspace();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          highlightKeyButton('enter');
+          submitAnswer();
+        } else if (e.key.toLowerCase() === 'h') {
+          e.preventDefault();
+          dom.btnShowHint.click();
+        }
+      });
+
+      document.querySelectorAll('.matrix-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          state.matrixFilter = tab.getAttribute('data-tab');
+          document.querySelectorAll('.matrix-tab').forEach(t => {
+            t.className = t === tab
+              ? 'matrix-tab flex-1 py-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition'
+              : 'matrix-tab flex-1 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition';
+          });
+          renderMatrix();
+        });
+      });
+
+      const closeInspect = () => {
+        dom.inspectModal.classList.add('hidden');
+        dom.inspectModal.classList.remove('flex');
+      };
+      dom.btnCloseInspect.addEventListener('click', closeInspect);
+      dom.btnCloseInspectBottom.addEventListener('click', closeInspect);
+      dom.inspectModal.addEventListener('click', (e) => {
+        if (e.target === dom.inspectModal) closeInspect();
+      });
+
+      dom.btnPlayAgainFull.addEventListener('click', () => {
+        startRound();
+      });
+      dom.btnCloseVictory.addEventListener('click', closeVictoryModal);
+      dom.victoryModal.addEventListener('click', (e) => {
+        if (e.target === dom.victoryModal) {
+          closeVictoryModal();
+        }
+      });
+      dom.btnRetryMistakesOnly.addEventListener('click', () => {
+        const missedEquations = state.allEquations.filter(eq => state.mistakeSet.has(eq.id));
+        if (missedEquations.length > 0) {
+          startRound(missedEquations);
+        }
+      });
+    }
+
+    function highlightKeyButton(keyName) {
+      const btn = document.querySelector(`.numpad-btn[data-key="${keyName}"]`);
+      if (btn) {
+        btn.classList.add('active-press');
+        setTimeout(() => btn.classList.remove('active-press'), 120);
+      }
+    }
+
+    /********************************************************************
+     * 8. PK 多人对战模式 (2人 / 4人 同屏)
+     ********************************************************************/
+    const PK_ROSTER = [
+      { name: '小兔',   emoji: '🐰', color: '#ef4444' },
+      { name: '小熊',   emoji: '🐻', color: '#3b82f6' },
+      { name: '小狐狸', emoji: '🦊', color: '#10b981' },
+      { name: '小狼',   emoji: '🐺', color: '#f59e0b' }
+    ];
+    const pk = {
+      active: false, n: 2, mode: 'tens_mul', total: 10, flip: false, pool: [], format: 'all', finished: 0,
+      phase: 'idle',            // idle | countdown | racing | done
+      players: [], t0: 0, tick: null, timeouts: []
+    };
+    const $pk = (id) => document.getElementById(id);
+
+    function pkLater(fn, ms) {
+      const id = setTimeout(fn, ms);
+      pk.timeouts.push(id);
+      return id;
+    }
+    function pkAbort() {
+      pk.timeouts.forEach(clearTimeout);
+      pk.timeouts = [];
+      if (pk.tick) { clearInterval(pk.tick); pk.tick = null; }
+      pk.phase = 'idle';
+    }
+    function pkFmt(ms) {
+      const t = Math.floor(ms / 100);
+      const m = String(Math.floor(t / 600)).padStart(2, '0');
+      const s = String(Math.floor((t % 600) / 10)).padStart(2, '0');
+      return `${m}:${s}.${t % 10}`;
+    }
+    function pkShow(id, on) { $pk(id).classList.toggle('pk-hide', !on); }
+
+    function openPK() {
+      pk.active = true;
+      stopTimer();                    // 暂停单人计时
+      pkShow('pkView', true);
+      document.body.style.overflow = 'hidden';
+      pkShowSetup();
+    }
+    function closePK() {
+      pkLeaveFullscreen();
+      pkAbort();
+      pk.active = false;
+      pkShow('pkView', false);
+      document.body.style.overflow = '';
+      if (state.currentEq && !state.timerInterval) startTimer();   // 恢复单人计时
+    }
+    function pkShowSetup() {
+      pkAbort();
+      pkShow('pkSetup', true);
+      pkShow('pkResult', false);
+      pkShow('pkReview', false);
+      pkShow('pkCountdown', false);
+      $pk('pkTimer').textContent = '00:00.0';
+      pkBuildBoard(true);
+      $pk('pkFlipRow').style.display = pk.n === 2 ? 'flex' : 'none';
+    }
+
+    /* ---------- 搭建赛道 + 答题面板 ---------- */
+    function pkBuildBoard(preview) {
+      const list = preview || !pk.players.length
+        ? PK_ROSTER.slice(0, pk.n).map((r, i) => ({ ...r, idx: i }))
+        : pk.players;
+
+      $pk('pkLanes').innerHTML = list.map((p, i) => `
+        <div class="pk-lane" id="pkLane${i}">
+          <span class="pk-lane-no" style="background:${p.color}">${i + 1}号 ${p.name}</span>
+          <div class="pk-run">
+            <div class="pk-runner" id="pkRunner${i}" style="left:0">
+              <span class="pk-flip"><span class="pk-ani">${p.emoji}</span></span>
+              <span class="pk-badge" id="pkBadge${i}">0/${pk.total}</span>
+            </div>
+          </div>
+          <div class="pk-finishline"></div>
+        </div>`).join('');
+
+      const keys = ['1','2','3','4','5','6','7','8','9','del','0','go'];
+      $pk('pkPanels').className = `p${pk.n}` + (pk.flip ? ' flip' : '');
+      $pk('pkPanels').innerHTML = list.map((p, i) => `
+        <div class="pk-panel" id="pkPanel${i}" data-p="${i}" style="--c:${p.color}">
+          <div class="pk-ptag"><span>${i + 1}号 ${p.emoji} ${p.name}</span><span id="pkCnt${i}">0/${pk.total}</span></div>
+          <div class="pk-prog"><i id="pkProg${i}"></i></div>
+          <div class="pk-eq">
+            <span id="pkA${i}">–</span><span class="op" id="pkOp${i}">+</span><span id="pkB${i}">–</span>
+            <span class="eqs">=</span><span class="pk-ans" id="pkAns${i}">?</span>
+          </div>
+          <div class="pk-pad">
+            ${keys.map(k => k === 'del'
+              ? `<button class="pk-key del" data-k="del">⌫</button>`
+              : k === 'go'
+                ? `<button class="pk-key go" data-k="go">✓</button>`
+                : `<button class="pk-key" data-k="${k}">${k}</button>`).join('')}
+          </div>
+        </div>`).join('');
+
+      $pk('pkTrack').classList.toggle('pk-racing-off', true);
+      $pk('pkTrack').style.setProperty('--lane-h', (pk.n === 2 ? 34 : pk.n === 3 ? 25 : 19) + 'px');
+      pkFitAnimals();
+    }
+    function pkFitAnimals() {
+      const lane = document.querySelector('#pkLanes .pk-lane');
+      if (!lane) return;
+      const px = Math.max(12, Math.min(42, lane.clientHeight * 0.68));
+      $pk('pkLanes').style.setProperty('--ani', px + 'px');
+    }
+
+    /* ---------- 开赛 ---------- */
+    function pkIsShort() { return window.innerHeight < 430; }
+    function pkTryFullscreen() {
+      try {
+        if (pkIsShort() && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+        }
+      } catch (e) {}
+    }
+    function pkLeaveFullscreen() {
+      try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); } catch (e) {}
+    }
+    /* PK选题：题目分配 + 每题口诀互不相同（40×6 与 400×6 都用 4×6，不同时出现） */
+    function pkKey(eq) {
+      let n, f;
+      if (eq.op === '×') { n = eq.a % 100 === 0 ? eq.a / 100 : eq.a / 10; f = eq.b; }
+      else {
+        const D = eq.a, d = eq.b;
+        const base = (D % 100 === 0 && (D / 100) % d === 0) ? D / 100 : D / 10;
+        n = base / d; f = d;
+      }
+      return Math.min(n, f) + '_' + Math.max(n, f);
+    }
+    /* 同类题最多出现一道：10×k、100×k（1个十/1个百乘k）、商为100的除法（200÷2、300÷3…900÷9） */
+    function pkGroup(eq) {
+      if (eq.op === '×' && (eq.a === 10 || eq.a === 100)) return 'mul_' + eq.a;
+      if (eq.op === '÷' && eq.answer === 100) return 'div_q100';
+      return '';
+    }
+    /* 口诀里出现的数字（忽略 1）：用于让 2~9 每个数字被用到的次数尽量相同 */
+    function pkDigits(eq) {
+      return pkKey(eq).split('_').map(Number).filter(d => d > 1);   // 3_3 这类同数相乘算出现两次
+    }
+    /* 局部交换优化：在不破坏“题型比例、口诀不重复、同类一道”的前提下，让各数字出现次数尽量均匀 */
+    function pkBalance(sel, byType) {
+      const cnt = {};
+      for (let d = 2; d <= 9; d++) cnt[d] = 0;
+      const add = (e, s) => pkDigits(e).forEach(d => { cnt[d] += s; });
+      sel.forEach(e => add(e, 1));
+      const cost = () => { let c = 0; for (let d = 2; d <= 9; d++) c += cnt[d] * cnt[d]; return c; };
+      let cur = cost();
+      for (let it = 0; it < 4000; it++) {
+        const i = Math.floor(Math.random() * sel.length), e = sel[i];
+        const list = byType[e.subType];
+        const c = list[Math.floor(Math.random() * list.length)];
+        if (sel.includes(c)) continue;
+        const kc = pkKey(c), gc = pkGroup(c);
+        if (sel.some((x, j) => j !== i && pkKey(x) === kc)) continue;
+        if (gc && sel.some((x, j) => j !== i && pkGroup(x) === gc)) continue;
+        add(e, -1); add(c, 1);
+        const nc = cost();
+        if (nc <= cur) { sel[i] = c; cur = nc; } else { add(c, -1); add(e, 1); }
+      }
+      return sel;
+    }
+    function pkQuota(mulT, divT, total) {
+      const q = {};
+      let mulN = total, divN = 0;
+      if (mulT.length && divT.length) { mulN = Math.ceil(total / 2); divN = total - mulN; }
+      else if (!mulT.length) { mulN = 0; divN = total; }
+      if (mulT.length === 2) { q.mul10 = Math.ceil(mulN / 2); q.mul100 = mulN - q.mul10; }
+      else if (mulT.length === 1) q[mulT[0]] = mulN;
+      if (divN > 0) {
+        const has10 = divT.includes('div10');
+        const others = divT.filter(t => t !== 'div10');
+        let rest = divN;
+        if (has10 && others.length) { q.div10 = Math.max(1, Math.round(divN * 0.1)); rest = divN - q.div10; }
+        else if (has10) { q.div10 = divN; rest = 0; }
+        if (others.length === 2) {
+          const a = Math.floor(rest / 2) + ((rest % 2 && Math.random() < 0.5) ? 1 : 0);
+          q[others[0]] = a; q[others[1]] = rest - a;
+        } else if (others.length === 1) q[others[0]] = rest;
+      }
+      return q;
+    }
+    function pkPickPool() {
+      const bank = generateQuestionBank(pk.mode);
+      const total = Math.min(pk.total, bank.length);
+      const byType = {};
+      bank.forEach(e => { (byType[e.subType] = byType[e.subType] || []).push(e); });
+      const types = Object.keys(byType);
+      const mulT = types.filter(t => t.startsWith('mul')), divT = types.filter(t => t.startsWith('div'));
+      let best = null;
+      for (let attempt = 0; attempt < 500; attempt++) {
+        const quota = pkQuota(mulT, divT, total);
+        const used = new Set(), usedG = new Set(), out = [];
+        let short = 0;
+        Object.keys(quota).sort((a, b) => byType[a].length - byType[b].length).forEach(t => {
+          let got = 0;
+          for (const e of shuffleArray(byType[t])) {
+            if (got >= quota[t]) break;
+            const k = pkKey(e);
+            if (used.has(k)) continue;
+            const g = pkGroup(e);
+            if (g && usedG.has(g)) continue;
+            used.add(k); if (g) usedG.add(g); out.push(e); got++;
+          }
+          short += quota[t] - got;
+        });
+        if (!best || short < best.short) best = { out, short };
+        if (short === 0) break;
+      }
+      const out = best.out;
+      if (best.short === 0) pkBalance(out, byType);
+      if (out.length < total) {   // 题不够时才补齐：先补不违反“同类一道”的，再补其余
+        const gs = new Set(out.map(pkGroup).filter(Boolean));
+        const ks = new Set(out.map(pkKey));
+        for (const strict of [true, false]) {   // 先补“口诀也不重复”的，再补仅满足“同类一道”的
+          for (const e of shuffleArray(bank)) {
+            if (out.length >= total) break;
+            const g = pkGroup(e);
+            if (out.includes(e) || (g && gs.has(g)) || (strict && ks.has(pkKey(e)))) continue;
+            out.push(e); ks.add(pkKey(e)); if (g) gs.add(g);
+          }
+        }
+        for (const e of shuffleArray(bank)) { if (out.length >= total) break; if (!out.includes(e)) out.push(e); }
+      }
+      return shuffleArray(out);
+    }
+
+    function pkStart() {
+      pkTryFullscreen();
+      pkAbort();
+      const pool = pkPickPool();
+      pk.total = pool.length;       // 题库不足时按实际题数
+      pk.pool = pool;
+      pk.finished = 0;
+      $pk('pkSkyText').textContent = pk.format === 'all' ? '🏃 口算田径大赛 · 全员答完，按用时排名' : '🏃 口算田径大赛 · 先到终点者胜';
+      pk.players = PK_ROSTER.slice(0, pk.n).map((r, i) => ({
+        ...r, idx: i,
+        queue: shuffleArray(pool),   // 题目相同，顺序各自随机
+        input: '', locked: false,
+        correct: 0, wrong: 0, combo: 0, maxCombo: 0, lastAt: null, wrongMap: {}
+      }));
+      pkBuildBoard(false);
+      pkShow('pkSetup', false);
+      pkShow('pkResult', false);
+      pkShow('pkReview', false);
+      pk.players.forEach(p => pkRenderQuestion(p, true));
+
+      pk.phase = 'countdown';
+      pkShow('pkCountdown', true);
+      const seq = ['3', '2', '1', 'GO!'];
+      seq.forEach((txt, i) => pkLater(() => {
+        const el = $pk('pkCountNum');
+        el.textContent = txt;
+        el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+        if (i < 3) sfx.playTone(440, 'sine', 0.16, 0, 0.2);
+        else { sfx.playTone(880, 'triangle', 0.35, 0, 0.22); }
+      }, i * 800));
+      pkLater(pkBeginRace, 3 * 800 + 650);
+    }
+
+    function pkBeginRace() {
+      pkShow('pkCountdown', false);
+      pk.phase = 'racing';
+      pk.t0 = performance.now();
+      $pk('pkTrack').classList.remove('pk-racing-off');
+      pk.tick = setInterval(() => {
+        $pk('pkTimer').textContent = pkFmt(performance.now() - pk.t0);
+      }, 100);
+    }
+
+    function pkRenderQuestion(p, hideAll) {
+      const i = p.idx;
+      const eq = p.queue[Math.min(p.correct, p.queue.length - 1)];
+      $pk('pkA' + i).textContent = eq.a;
+      $pk('pkOp' + i).textContent = eq.op;
+      $pk('pkB' + i).textContent = eq.b;
+      pkRenderInput(p);
+    }
+    function pkRenderInput(p) {
+      const el = $pk('pkAns' + p.idx);
+      el.textContent = p.input === '' ? '?' : p.input;
+      el.className = 'pk-ans';
+    }
+
+    /* ---------- 输入处理 ---------- */
+    function pkPress(i, key) {
+      if (pk.phase !== 'racing') return;
+      const p = pk.players[i];
+      if (!p || p.locked) return;
+      const eq = p.queue[p.correct];
+
+      if (key === 'del') {
+        if (p.input) { p.input = p.input.slice(0, -1); sfx.playTone(430, 'sine', 0.04, 0, 0.05); pkRenderInput(p); }
+        return;
+      }
+      if (key === 'go') {
+        if (p.input !== '') pkSubmit(p);
+        return;
+      }
+      if (p.input.length >= 4) p.input = '';
+      p.input += key;
+      sfx.playTone(480 + i * 60, 'sine', 0.05, 0, 0.05);
+      pkRenderInput(p);
+      if (p.input.length >= String(eq.answer).length) pkSubmit(p);
+    }
+
+    function pkSubmit(p) {
+      const i = p.idx;
+      const eq = p.queue[p.correct];
+      const val = parseInt(p.input, 10);
+      const ans = $pk('pkAns' + i);
+
+      if (val === eq.answer) {
+        p.correct++;
+        p.combo++;
+        p.maxCombo = Math.max(p.maxCombo, p.combo);
+        p.lastAt = performance.now() - pk.t0;
+        p.locked = true;
+        ans.className = 'pk-ans ok';
+        sfx.playCorrect(Math.min(p.combo, 6));
+        pkUpdateProgress(p, true);
+
+        const panel = $pk('pkPanel' + i);
+        const f = document.createElement('div');
+        f.className = 'pk-float'; f.textContent = p.combo >= 3 ? `🔥 ${p.combo}连击` : '+1';
+        panel.appendChild(f);
+        setTimeout(() => f.remove(), 850);
+
+        if (p.correct >= pk.total) {
+          if (pk.format === 'all') { pkPlayerDone(p); }
+          else { pkFinish(); }
+          return;
+        }
+        pkLater(() => {
+          p.input = ''; p.locked = false;
+          pkRenderQuestion(p);
+        }, 230);
+      } else {
+        p.wrong++;
+        p.wrongMap[eq.id] = (p.wrongMap[eq.id] || 0) + 1;
+        p.combo = 0;
+        p.locked = true;
+        ans.className = 'pk-ans bad';
+        $pk('pkPanel' + i).classList.add('locked');
+        sfx.playWrong();
+        pkLater(() => {
+          p.input = ''; p.locked = false;
+          $pk('pkPanel' + i).classList.remove('locked');
+          pkRenderInput(p);
+        }, 700);
+      }
+    }
+
+    function pkUpdateProgress(p, hop) {
+      const i = p.idx;
+      const frac = p.correct / pk.total;
+      $pk('pkRunner' + i).style.left = `calc(${frac} * (100% - 3.4rem))`;
+      $pk('pkBadge' + i).textContent = `${p.correct}/${pk.total}`;
+      $pk('pkCnt' + i).textContent = `${p.correct}/${pk.total}`;
+      $pk('pkProg' + i).style.width = `${frac * 100}%`;
+      if (hop) {
+        const lane = $pk('pkLane' + i);
+        lane.classList.remove('pk-hop'); void lane.offsetWidth; lane.classList.add('pk-hop');
+        setTimeout(() => lane.classList.remove('pk-hop'), 480);
+      }
+      // 领先者标记 👑
+      const max = Math.max(...pk.players.map(x => x.correct));
+      const leaders = pk.players.filter(x => x.correct === max);
+      pk.players.forEach(x => {
+        const tag = document.querySelector(`#pkLane${x.idx} .pk-lane-no`);
+        tag.textContent = `${leaders.length === 1 && max > 0 && x === leaders[0] ? '👑' : ''}${x.idx + 1}号 ${x.name}`;
+      });
+    }
+
+    /* ---------- 全员答完模式：个人完成 ---------- */
+    function pkPlayerDone(p) {
+      p.doneAt = p.lastAt;
+      p.place = ++pk.finished;
+      p.locked = true;
+      $pk('pkBadge' + p.idx).textContent = '🏁 ' + pkFmt(p.doneAt);
+      const left = pk.players.length - pk.finished;
+      const panel = $pk('pkPanel' + p.idx);
+      const d = document.createElement('div');
+      d.className = 'pk-done';
+      d.innerHTML = `<div class="big">🏁 已完成！</div>
+        <div class="sub">第 ${p.place} 个冲线 · 用时 ${pkFmt(p.doneAt)}</div>
+        <div class="sub">答错 ${p.wrong} 次</div>
+        <div class="wait">${left > 0 ? `等待其他 ${left} 位选手…` : ''}</div>`;
+      panel.appendChild(d);
+      sfx.playTone(784, 'triangle', 0.25, 0, 0.2);
+      sfx.playTone(1046, 'triangle', 0.35, 0.12, 0.2);
+      if (left === 0) pkFinish();
+    }
+
+    /* ---------- 结算 ---------- */
+    function pkRank() {
+      const key = pk.format === 'all'
+        ? (p => [0, p.doneAt != null ? p.doneAt : Infinity])
+        : (p => [-p.correct, p.correct > 0 ? p.lastAt : Infinity]);
+      const sorted = [...pk.players].sort((a, b) => {
+        const ka = key(a), kb = key(b);
+        return ka[0] - kb[0] || ka[1] - kb[1];
+      });
+      let rank = 0, prev = null;
+      sorted.forEach((p, idx) => {
+        const k = key(p).join('|');
+        if (k !== prev) rank = idx + 1;
+        p.rank = rank; prev = k;
+      });
+      return sorted;
+    }
+
+    function pkFinish() {
+      pk.phase = 'done';
+      if (pk.tick) { clearInterval(pk.tick); pk.tick = null; }
+      const sorted0 = pkRank();
+      const winner = sorted0[0];
+      const total = pk.format === 'all'
+        ? Math.max(...pk.players.map(x => x.doneAt || 0))
+        : winner.lastAt;
+      $pk('pkTimer').textContent = pkFmt(total);
+      $pk('pkTrack').classList.add('pk-racing-off');
+      pk.players.forEach(p => p.locked = true);
+
+      const sorted = sorted0;
+      const medals = ['🥇', '🥈', '🥉', '🎖️'];
+      $pk('pkWinTitle').innerHTML = pk.format === 'all'
+        ? `${winner.emoji} ${winner.idx + 1}号 ${winner.name} 夺得冠军！`
+        : `${winner.emoji} ${winner.idx + 1}号 ${winner.name} 获胜！`;
+      $pk('pkWinTitle').style.color = winner.color;
+      $pk('pkWinSub').textContent = pk.format === 'all'
+        ? `全员答完 ${pk.total} 题 · 按完成用时排名 · 冠军用时 ${pkFmt(winner.doneAt)}`
+        : `${pk.total} 题全部答对，用时 ${pkFmt(total)}`;
+      $pk('pkRankList').innerHTML = sorted.map(p => `
+        <div class="pk-rank ${p.rank === 1 ? 'first' : ''}">
+          <div class="medal">${medals[Math.min(p.rank - 1, 3)]}</div>
+          <div style="font-size:1.5rem">${p.emoji}</div>
+          <div style="flex:1;min-width:0">
+            <div class="name" style="color:${p.color}">${p.idx + 1}号 ${p.name}</div>
+            <div class="meta">答错 ${p.wrong} 次 · 最高连击 ${p.maxCombo}</div>
+          </div>
+          <div class="score">${pk.format === 'all' ? pkFmt(p.doneAt) : `${p.correct}/${pk.total}`}</div>
+        </div>`).join('');
+
+      pkLater(() => {
+        sfx.playVictory();
+        launchConfetti();
+        pkShow('pkResult', true);
+      }, 650);
+    }
+
+    /* ---------- 复盘：题目与答案 ---------- */
+    let pkReviewFilter = 'all';
+    function pkRenderReview() {
+      const pool = pk.pool || [];
+      const rows = pool.map((eq, idx) => {
+        const wrongBy = pk.players.filter(p => p.wrongMap[eq.id]);
+        return { eq, idx, wrongBy };
+      }).filter(r => pkReviewFilter === 'all' || r.wrongBy.length);
+      const wrongQ = pool.filter(eq => pk.players.some(p => p.wrongMap[eq.id])).length;
+      $pk('pkReviewSub').textContent = `共 ${pool.length} 题，其中 ${wrongQ} 题有人答错过 · 点击题目查看拆解讲解`;
+      if (!rows.length) {
+        $pk('pkReviewList').innerHTML = `<div style="text-align:center;padding:1.2rem 0;font-weight:800;color:#059669">🎉 没有人答错过，全部一次答对！</div>`;
+        return;
+      }
+      $pk('pkReviewList').innerHTML = rows.map(r => {
+        const tags = r.wrongBy.length
+          ? r.wrongBy.map(p => `<span class="pk-tag">${p.emoji}${p.idx + 1}号 错${p.wrongMap[r.eq.id]}次</span>`).join('')
+          : `<span class="pk-tag ok">✓ 全员一次答对</span>`;
+        return `<button class="pk-q" data-i="${r.idx}">
+          <div class="pk-q-head"><span class="pk-q-no">${r.idx + 1}</span>
+            <span class="pk-q-eq">${r.eq.a} ${r.eq.op} ${r.eq.b} = <b>${r.eq.answer}</b></span>
+            <span class="pk-q-tags">${tags}</span></div>
+          <div class="pk-q-detail pk-hide"></div></button>`;
+      }).join('');
+    }
+    function pkToggleQ(btn) {
+      const eq = pk.pool[parseInt(btn.dataset.i, 10)];
+      const box = btn.querySelector('.pk-q-detail');
+      const open = box.classList.contains('pk-hide');
+      btn.classList.toggle('open', open);
+      box.classList.toggle('pk-hide', !open);
+      if (open && !box.innerHTML) {
+        const d = getDecompositionData(eq, 'koujue', false);
+        box.innerHTML = `<div class="ttl">🎓 ${d.title}</div>
+          <div style="max-width:300px;margin:.3rem auto 0;background:#fff;border-radius:.6rem;border:1px solid #fde68a">${renderDecompositionSVG(d)}</div>
+          <div class="steps"><div>1️⃣ ${d.step1}</div><div style="margin-top:.2rem">2️⃣ ${d.step2}</div></div>`;
+      }
+    }
+
+    /* ---------- 事件绑定 ---------- */
+    function bindPK() {
+      window.addEventListener('resize', () => { if (pk.active) pkFitAnimals(); });
+      $pk('btnPK').addEventListener('click', openPK);
+      $pk('pkBtnExit').addEventListener('click', closePK);
+      $pk('pkBtnBackSolo').addEventListener('click', closePK);
+      $pk('pkBtnRestart').addEventListener('click', pkShowSetup);
+      $pk('pkBtnToSetup').addEventListener('click', pkShowSetup);
+      $pk('pkBtnStart').addEventListener('click', pkStart);
+      $pk('pkBtnAgain').addEventListener('click', pkStart);
+      $pk('pkBtnResultSolo').addEventListener('click', closePK);
+      $pk('pkBtnReview').addEventListener('click', () => {
+        pkReviewFilter = 'all';
+        document.querySelectorAll('#pkReviewFilter .pk-seg').forEach(x => x.classList.toggle('on', x.dataset.f === 'all'));
+        pkRenderReview();
+        pkShow('pkResult', false);
+        pkShow('pkReview', true);
+      });
+      $pk('pkBtnReviewBack').addEventListener('click', () => { pkShow('pkReview', false); pkShow('pkResult', true); });
+      $pk('pkReviewFilter').addEventListener('click', e => {
+        const b = e.target.closest('.pk-seg'); if (!b) return;
+        pkReviewFilter = b.dataset.f;
+        document.querySelectorAll('#pkReviewFilter .pk-seg').forEach(x => x.classList.toggle('on', x === b));
+        pkRenderReview();
+      });
+      $pk('pkReviewList').addEventListener('click', e => {
+        const q = e.target.closest('.pk-q'); if (q) pkToggleQ(q);
+      });
+      $pk('pkBtnLook').addEventListener('click', () => pkShow('pkResult', false));
+      $pk('pkBtnSound').addEventListener('click', () => {
+        dom.btnSoundToggle.click();
+        $pk('pkBtnSound').textContent = sfx.enabled ? '🔊' : '🔇';
+      });
+      $pk('pkMode').addEventListener('change', e => { pk.mode = e.target.value; });
+      $pk('pkFlip').addEventListener('change', e => { pk.flip = e.target.checked; pkBuildBoard(true); });
+
+      document.querySelectorAll('#pkSetup .pk-segs').forEach(group => {
+        group.addEventListener('click', e => {
+          const b = e.target.closest('.pk-seg');
+          if (!b) return;
+          group.querySelectorAll('.pk-seg').forEach(x => x.classList.toggle('on', x === b));
+          pk[group.dataset.group] = group.dataset.group === 'format' ? b.dataset.val : parseInt(b.dataset.val, 10);
+          if (group.dataset.group === 'n') {
+            $pk('pkFlipRow').style.display = pk.n === 2 ? 'flex' : 'none';
+            pkBuildBoard(true);
+          }
+        });
+      });
+
+      // 多点触控：用 pointerdown，避免多人同时按键时 click 丢失
+      $pk('pkPanels').addEventListener('pointerdown', e => {
+        const btn = e.target.closest('.pk-key');
+        if (!btn) return;
+        e.preventDefault();
+        const panel = btn.closest('.pk-panel');
+        pkPress(parseInt(panel.dataset.p, 10), btn.dataset.k);
+      });
+
+      // 电脑键盘（2人对战可用）：1号 = 主键盘数字 / Backspace / Enter；2号 = 小键盘数字 / Delete / 小键盘Enter
+      window.addEventListener('keydown', e => {
+        if (!pk.active || pk.phase !== 'racing') return;
+        const numpad = e.location === 3;
+        const who = numpad ? 1 : 0;
+        if (who >= pk.n) return;
+        if (e.key >= '0' && e.key <= '9') pkPress(who, e.key);
+        else if (e.key === 'Backspace' || e.key === 'Delete') pkPress(who, 'del');
+        else if (e.key === 'Enter') pkPress(who, 'go');
+        else return;
+        e.preventDefault();
+      });
+    }
+
+    window.onload = function () {
+      populateModes();
+      bindEvents();
+      bindPK();
+      startRound();
+    };
+  </script>
+</body>
+</html>
