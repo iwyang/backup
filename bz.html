@@ -55,6 +55,7 @@
   svg.pab .zone{fill:transparent;cursor:pointer}
   svg.pab .zone:hover{fill:rgba(216,40,28,.07)}
   svg.pab .pb{cursor:pointer}
+  svg.pab .pm{cursor:pointer}svg.pab .pm:hover circle{opacity:.8}
   .readout{display:flex;justify-content:center;gap:26px;font-size:18px;margin:4px 0}
   .readout span b{color:var(--red);font-size:22px}
   .fb{text-align:center;min-height:56px;font-size:19px;line-height:1.7;margin-top:6px}
@@ -93,6 +94,7 @@
   <div class="board" id="pboard"></div>
   <div class="ctrl">
     <button id="chk">检查答案</button>
+    <button id="undo" class="ghost">↶ 撤销</button>
     <button id="clr" class="ghost">清空</button>
     <button id="nq" class="ghost">换一题</button>
   </div>
@@ -231,7 +233,7 @@ document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
   $("sec-prac").classList.toggle("act", b.dataset.t === "prac");
   const pr = b.dataset.t === "prac";
   $("ttl").textContent = pr ? "拨一拨，算一算" : "拨珠过程演示";
-  $("sub").innerHTML = pr ? "先把整十、整百数看成几个十、几个百，再在计数器上拨出结果。点击某一档拨上一颗珠子，点最上面的珠子可拨下。"
+  $("sub").innerHTML = pr ? "先把整十、整百数看成几个十、几个百，再在计数器上拨出结果。点每档下方的 ＋ 拨上一颗珠子，点 － 拨下一颗；也可以直接点档或点珠子，或点「撤销」。"
     : "把整十、整百数看成几个十、几个百，再用表内乘法 <b>2×3=6</b> 来计算。点击「播放」观看，或用「下一步」逐步讲解。";
   if (b.dataset.t !== "demo" && playing){ playing = false; token++; updateUI(); }
 });
@@ -240,12 +242,13 @@ document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
 const UN = ["百","十","一"], POSN = ["百位","十位","个位"];
 const pboard = $("pboard");
 let Q = {a:2, b:3}, solved = 0, tried = 0;
+const HIST = [];
 
 const pp = [2,1,0].map((_, k) => {            // k=0 个位, 1 十位, 2 百位（与演示顺序一致）
   const pos = 2 - k, mul = [1,10,100][k];
   const p = document.createElement("div"); p.className = "panel on";
   p.innerHTML = `<div class="eq"></div>`;
-  const svg = el("svg", {viewBox:"0 0 186 250", class:"pab"});
+  const svg = el("svg", {viewBox:"0 0 186 282", class:"pab"});
   const d = el("defs", {}, svg);
   const g = el("radialGradient", {id:"bgP"+k, cx:".35", cy:".3", r:".8"}, d);
   el("stop", {offset:"0","stop-color":"#ffd27a"}, g);
@@ -261,8 +264,20 @@ const pp = [2,1,0].map((_, k) => {            // k=0 个位, 1 十位, 2 百位�
   const P = {pos, mul, k, p, svg, beads, cnt:[0,0,0], eq:p.querySelector(".eq")};
   RODX.forEach((x,i) => {
     const z = el("rect", {x:x-30, y:20, width:60, height:BASE-20, class:"zone"}, svg);
-    z.onclick = () => { if (P.cnt[i] < 9){ P.cnt[i]++; draw(P); } };
+    z.onclick = () => { if (P.cnt[i] < 9){ P.cnt[i]++; HIST.push([P,i]); draw(P); } };
   });
+  svg.appendChild(beads);
+  RODX.forEach((x,i) => {   // 每档下方的 − / + 按钮
+    [[-15,"−",-1],[15,"+",1]].forEach(([dx,ch,d]) => {
+      const g = el("g", {class:"pm"}, svg);
+      el("circle", {cx:x+dx, cy:262, r:12, fill: d>0 ? "var(--btn)" : "var(--panel)", stroke:"var(--btn)", "stroke-width":1.5}, g);
+      el("text", {x:x+dx, y:269, "text-anchor":"middle", "font-size":22, "font-weight":700, fill: d>0 ? "#fff" : "var(--btn)", "pointer-events":"none"}, g).textContent = ch;
+      g.onclick = () => {
+        if (d > 0 && P.cnt[i] < 9){ P.cnt[i]++; HIST.push([P,i]); draw(P); }
+        if (d < 0 && P.cnt[i] > 0){ P.cnt[i]--; draw(P); }
+      };
+    });
+  });   // 珠子放在点击区上层，才能点到珠子拨下
   p.appendChild(svg);
   const ro = document.createElement("div"); ro.className = "readout";
   ro.innerHTML = `<span>百位 <b>0</b></span><span>十位 <b>0</b></span><span>个位 <b>0</b></span>`;
@@ -278,7 +293,7 @@ function draw(P){
     for (let t = 0; t < n; t++){
       const g = el("g", {class:"pb"}, P.beads);
       el("ellipse", {cx:RODX[r], cy:BASE-8.5-t*BH, rx:14.5, ry:7.8, fill:`url(#bgP${P.k})`, stroke:"#9a4300", "stroke-width":.6}, g);
-      if (t === n-1) g.onclick = ev => { ev.stopPropagation(); P.cnt[r]--; draw(P); };
+      g.onclick = ev => { ev.stopPropagation(); P.cnt[r] = t; draw(P); };   // 点任意一颗，拨下它及其上方的珠子
     }
   });
   P.ro.querySelectorAll("b").forEach((b,i) => b.textContent = P.cnt[i]);
@@ -293,6 +308,7 @@ function newQ(){
     P.eq.innerHTML = `${Q[0]*P.mul} × ${Q[1]} = <span class="r" style="color:var(--red)">?</span>`;
     P.cnt = [0,0,0]; draw(P);
   });
+  HIST.length = 0;
   $("score").textContent = solved || tried ? `已全部答对 ${solved} 题，共检查 ${tried} 次` : "";
 }
 
@@ -323,7 +339,13 @@ $("chk").onclick = () => {
   if (res.every(Boolean)) solved++;
   $("score").textContent = (res.every(Boolean) ? "🎉 三题全对！　" : "") + `已全部答对 ${solved} 题，共检查 ${tried} 次`;
 };
-$("clr").onclick = () => pp.forEach(P => { P.cnt = [0,0,0]; draw(P); });
+$("undo").onclick = () => {   // 撤销最近一次拨上的珠子（已被手动拨下的会自动跳过）
+  while (HIST.length){
+    const [P,r] = HIST.pop();
+    if (P.cnt[r] > 0){ P.cnt[r]--; draw(P); return; }
+  }
+};
+$("clr").onclick = () => { HIST.length = 0; pp.forEach(P => { P.cnt = [0,0,0]; draw(P); }); };
 $("nq").onclick = newQ;
 newQ();
 </script>
