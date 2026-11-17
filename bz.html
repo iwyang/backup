@@ -67,8 +67,8 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>拨珠过程演示</h1>
-  <p class="sub">把整十、整百数看成几个十、几个百，再用表内乘法 <b>2×3=6</b> 来计算。点击「播放」观看，或用「下一步」逐步讲解。</p>
+  <h1 id="ttl">拨珠过程演示</h1>
+  <p class="sub" id="sub">把整十、整百数看成几个十、几个百，再用表内乘法 <b>2×3=6</b> 来计算。点击「播放」观看，或用「下一步」逐步讲解。</p>
 
   <div class="tabs">
     <button class="tab act" data-t="demo">老师演示</button>
@@ -90,7 +90,6 @@
 </div>
 
 <div class="sec" id="sec-prac">
-  <p class="sub" style="text-align:center;margin-bottom:10px" id="qhint">在每个计数器上拨出算式的结果。点击某一档拨上一颗珠子，点最上面的珠子可拨下。</p>
   <div class="board" id="pboard"></div>
   <div class="ctrl">
     <button id="chk">检查答案</button>
@@ -230,6 +229,10 @@ document.querySelectorAll(".tab").forEach(b => b.onclick = () => {
   document.querySelectorAll(".tab").forEach(x => x.classList.toggle("act", x === b));
   $("sec-demo").classList.toggle("act", b.dataset.t === "demo");
   $("sec-prac").classList.toggle("act", b.dataset.t === "prac");
+  const pr = b.dataset.t === "prac";
+  $("ttl").textContent = pr ? "拨一拨，算一算" : "拨珠过程演示";
+  $("sub").innerHTML = pr ? "先把整十、整百数看成几个十、几个百，再在计数器上拨出结果。点击某一档拨上一颗珠子，点最上面的珠子可拨下。"
+    : "把整十、整百数看成几个十、几个百，再用表内乘法 <b>2×3=6</b> 来计算。点击「播放」观看，或用「下一步」逐步讲解。";
   if (b.dataset.t !== "demo" && playing){ playing = false; token++; updateUI(); }
 });
 
